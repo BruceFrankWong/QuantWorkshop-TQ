@@ -135,5 +135,5 @@ dmypy.json
 .idea/jsLibraryMappings.xml
 
 # Log file
-.log/
-.log/*
+log/
+log/*
