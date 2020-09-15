@@ -88,6 +88,7 @@ class QWOrderManager(object):
     _finished_order_list: List[str]             # 完结委托单
     _position_order_list: List[str]             # 开仓委托单，未平仓，所以持仓
     _unfilled_order_list: List[str]             # 未成交委托单，包括开仓单和平仓单
+    _canceled_order_list: List[str]             # 已撤销委托单
     _unfilled_order_price_dict: Dict[float, List[str]]      # 未成交委托单的价格索引
 
     def __init__(self) -> None:
@@ -143,7 +144,7 @@ class QWOrderManager(object):
         else:
             del self._unfilled_order_price_dict[order.limit_price]
 
-        # 如果 order 是平仓单
+        # 如果 order 是平仓单，在 finished_order_list 中增加记录；否则在 position_order_list 中增加记录。
         if order.offset == 'CLOSE' or order.offset == 'CLOSETODAY':
             self._finished_order_list.append(unique_id)
         else:
@@ -159,38 +160,43 @@ class QWOrderManager(object):
         # 在 unfilled_order_list 中去除记录
         self._unfilled_order_list.remove(unique_id)
 
-        if len(self._unfilled_order_price_dict[order.price]) > 1:
-            self._unfilled_order_price_dict[order.price].remove(order)
+        # 在 order_price_dict 中去除记录
+        if len(self._unfilled_order_price_dict[order.limit_price]) > 1:
+            self._unfilled_order_price_dict[order.limit_price].remove(unique_id)
         else:
-            del self._unfilled_order_price_dict[order.price]
+            del self._unfilled_order_price_dict[order.limit_price]
 
-        self._order_list.remove(order)
+        # 在 canceled_order_list 中去除记录
+        self._canceled_order_list.append(unique_id)
 
     @property
     def order_list(self) -> list:
         return self._order_list
 
     @property
-    def total_lots(self) -> int:
+    def unfilled_lots(self) -> int:
         lots: int = 0
-        for order in self._order_list:
-            lots += order.lots
+        unique_id: str
+        for unique_id in self._unfilled_order_list:
+            lots += self._order_dict[unique_id].volume_orign
         return lots
 
     @property
-    def total_lots_for_buy(self) -> int:
+    def unfilled_lots_for_buy(self) -> int:
         lots: int = 0
-        for order in self._order_list:
-            if order.direction == 'BUY':
-                lots += order.lots
+        unique_id: str
+        for unique_id in self._unfilled_order_list:
+            if self._order_dict[unique_id].direction == 'BUY':
+                lots += self._order_dict[unique_id].volume_orign
         return lots
 
     @property
-    def total_lots_for_sell(self) -> int:
+    def unfilled_lots_for_sell(self) -> int:
         lots: int = 0
-        for order in self._order_list:
-            if order.direction == 'SELL':
-                lots += order.lots
+        unique_id: str
+        for unique_id in self._unfilled_order_list:
+            if self._order_dict[unique_id].direction == 'SELL':
+                lots += self._order_dict[unique_id].volume_orign
         return lots
 
     @property
@@ -203,6 +209,8 @@ class QWOrderManager(object):
 
     @property
     def highest_bid_price(self) -> float:
+        """最低买价
+        """
         price: float = self._order_list[0].price
         order: QWOrder
         for order in self._order_list:
@@ -212,6 +220,8 @@ class QWOrderManager(object):
 
     @property
     def lowest_ask_price(self) -> float:
+        """最高卖价
+        """
         price: float = self._order_list[0].price
         order: QWOrder
         for order in self._order_list:
@@ -246,7 +256,13 @@ class QWOrderManager(object):
         return result
 
     def unfilled_lots_at_price(self, p: float) -> int:
-        pass
+        """在某一价位上的未成交委托单
+        """
+        lots: int = 0
+        order_id: str
+        for order_id in self._unfilled_order_price_dict[p]:
+            lots += self._order_dict[order_id].volume_orign
+        return lots
 
     def save(self) -> None:
         pass

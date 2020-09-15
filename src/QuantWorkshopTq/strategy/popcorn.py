@@ -173,7 +173,7 @@ class PopcornStrategy(StrategyBase):
         """
         if (self.is_valid_trading_time(t) and
                 self.available_lots > 0 and
-                self._order_manager.order_lots_at_price(p) < self._lots_per_price)):
+                self._order_manager.unfilled_lots_at_price(p) < self._lots_per_price):
             return True
         else:
             return False
