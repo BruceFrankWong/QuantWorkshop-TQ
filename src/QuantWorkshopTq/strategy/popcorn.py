@@ -107,7 +107,6 @@ class PopcornStrategy(StrategyBase):
     _quote: Quote
     _realtime_order: Entity
 
-    _position_manager: QWPositionManager
     _order_manager: QWOrderManager
 
     def __init__(self,
@@ -127,7 +126,6 @@ class PopcornStrategy(StrategyBase):
         self._lots_per_price = lots_per_price
         self._max_fluctuation = max_fluctuation
 
-        self._position_manager = QWPositionManager()
         self._order_manager = QWOrderManager()
 
         self._trading_time_list = [
@@ -137,35 +135,49 @@ class PopcornStrategy(StrategyBase):
         ]
 
     @property
-    def position_max(self) -> int:
-        """最大持仓。
-        最大持仓 = (账户资金 × 安全比例 ) / 每手保证金
+    def max_lots(self) -> int:
+        """最大手数。
+        最大手数 = (账户资金 × 安全比例 ) / 每手保证金
         """
         return math.floor(self._capital * self._safety_rate / self._margin_per_lot)
 
     @property
-    def position_filled(self) -> int:
-        """已有持仓。
-
-        :return:
-        """
-        return self._position_manager.total_lots
-
-    @property
-    def position_ordered(self) -> int:
-        """挂单持仓。
-        挂单持仓 即已发出但尚未成交的指令单，同样占用资金。
+    def position_lots(self) -> int:
+        """持仓手数。
+        持仓手数 = 已成交且未平仓的委托单总手数
         :return:
         """
         return self._order_manager.total_lots
 
     @property
-    def position_available(self) -> int:
-        """可用持仓。
-        可用持仓 = 最大持仓 - 已有持仓 - 挂单持仓
+    def ordered_lots(self) -> int:
+        """挂单手数。
+        挂单手数 = 已发出但尚未成交的委托单总手数。
+        :return:
         """
-        return self.position_max - self.position_filled - self.position_ordered
+        return self._order_manager.total_lots
 
+    @property
+    def available_lots(self) -> int:
+        """可用手数。
+        可用手数 = 最大手数 - 持仓手数 - 挂单手数
+        """
+        return self.max_lots - self.position_lots - self.ordered_lots
+
+    def is_open_condition_met(self, t: time, p: float) -> bool:
+        """开仓条件是否满足
+        开仓条件：
+        1、在交易时间段内；
+        2、可用手数 > 0；
+        3、当前价位上手数 < 最大价位手数；
+        """
+        if (self.is_valid_trading_time(t) and
+                self.available_lots > 0 and
+                self._order_manager.order_lots_at_price(p) < self._lots_per_price)):
+            return True
+        else:
+            return False
+    
     def run(self):
         current_time: time
         order: Order
@@ -178,40 +190,38 @@ class PopcornStrategy(StrategyBase):
         self._position = self._api.get_position()
         self._realtime_order = self._api.get_order()
 
-        self._logger.info(f'资金: {self._capital}, 最大持仓: {self.position_max}')
+        self._logger.info(f'资金: {self._capital}, 最大持仓: {self.max_lots}')
         while True:
             self._api.wait_update()
 
-            # 尝试开仓
+            # 当盘口行情发生变化
             if self._api.is_changing(self._quote, 'ask_price1'):
                 current_ask_price1 = self._quote.ask_price1
                 current_bid_price1 = self._quote.bid_price1
 
                 current_time = datetime.fromisoformat(self._quote.datetime).time()
 
-                # 尝试开仓
-                if (self.is_valid_trading_time(current_time) and
-                        self.position_available > 0 and
-                        self._position_manager.lots_at_price(current_ask_price1) < self._lots_per_price):
-                    order = self._api.insert_order(symbol=self._symbol,
-                                                   direction='BUY',
-                                                   offset='OPEN',
-                                                   volume=self._lots_per_order,
-                                                   limit_price=current_ask_price1
-                                                   )
+                # 开仓条件满足时，开仓
+                if self.is_valid_trading_time(current_time) and self.is_open_condition_met:
+                    order_open = self._api.insert_order(symbol=self._symbol,
+                                                        direction='BUY',
+                                                        offset='OPEN',
+                                                        volume=self._lots_per_order,
+                                                        limit_price=current_ask_price1
+                                                        )
                     self._api.wait_update()     # 等待生成 order_id
-                    self._order_manager.add(QWOrder(order_id=order.exchange_order_id,
-                                                    price=order.limit_price,
-                                                    lots=order.volume_orign,
+                    self._order_manager.add(QWOrder(order_id=order_open.exchange_order_id,
+                                                    price=order_open.limit_price,
+                                                    lots=order_open.volume_orign,
                                                     direction=QWDirection.Buy,
                                                     offset=QWOffset.Open
                                                     )
                                             )
-                    order_to_be_closed.append(order)
+                    order_to_be_closed.append(order_open)
                     self._logger.info(self._message_open_buy.format(datetime=self._quote.datetime,
                                                                     volume=self._lots_per_order,
                                                                     price=current_ask_price1,
-                                                                    order_id=order.exchange_order_id
+                                                                    order_id=order_open.exchange_order_id
                                                                     )
                                       )
 

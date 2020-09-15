@@ -5,6 +5,7 @@ __author__ = 'Bruce Frank Wong'
 
 from typing import Dict, List
 from datetime import datetime
+import math
 
 from . import QWDirection, QWOffset, QWOrderStatus
 
@@ -18,9 +19,13 @@ class QWPosition(object):
 
 
 class QWPositionManager(object):
+    _capital_available: float
+    _price_per_lot: float
     _position_list: List[QWPosition]
 
-    def __init__(self) -> None:
+    def __init__(self, capital_available: float, price_per_lot: float) -> None:
+        self._capital_available = capital_available
+        self._price_per_lot = price_per_lot
         self._position_list = []
 
     def add(self, position: QWPosition) -> None:
@@ -35,6 +40,14 @@ class QWPositionManager(object):
             if position.order_id == order_id:
                 self._position_list.remove(position)
                 break
+
+    @property
+    def max_lots(self) -> int:
+        return math.floor(self._capital_available / self._price_per_lot)
+
+    @property
+    def available_lots(self) -> int:
+        return self.max_lots - self.total_lots
 
     @property
     def total_lots(self) -> int:
