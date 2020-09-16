@@ -10,8 +10,9 @@ from datetime import datetime, date, time, timezone, timedelta
 
 from pandas import DataFrame
 from tqsdk import TqApi
+from tqsdk.objs import Account, Quote, Order
 
-from QuantWorkshopTq.define import tz_beijing, tz_settlement, TradingTime
+from QuantWorkshopTq.define import tz_beijing, tz_settlement, QWTradingTime
 
 
 class StrategyBase(object):
@@ -22,19 +23,22 @@ class StrategyBase(object):
 
     _tz_beijing: timezone
     _tz_settlement: timezone
-    _trading_time_list: List[TradingTime]
+    _trading_time_list: List[QWTradingTime]
 
     _logger: logging.Logger
 
     _api: TqApi
-    _ticks: DataFrame
-    _klines: DataFrame
+    _tq_account: Account
+    _tq_quote: Quote
+    _tq_order: Order
+    _tq_ticks: DataFrame
+    _tq_klines: DataFrame
 
-    _message_open_buy: str = '{datetime}, 买开, {volume}手, 价格：{price}, 委托单号：{order_id}'
-    _message_open_sell: str = '{datetime}, 卖开, {volume}手, 价格：{price}, 委托单号：{order_id}'
-    _message_close_buy: str = '{datetime}, 卖平, {volume}手, 价格：{price}, 委托单号：{order_id}'
-    _message_close_sell: str = '{datetime}, 买平, {volume}手, 价格：{price}, 委托单号：{order_id}'
-    _message_fill: str = '{datetime}, 成交, {volume}手, 价格：{price}, 委托单号：{order_id}'
+    _message_open_buy: str = '{datetime}, 【下单】买开, 委托单号：{order_id}, {volume}手, 价格：{price}'
+    _message_open_sell: str = '{datetime}, 【下单】卖开, 委托单号：{order_id}, {volume}手, 价格：{price}'
+    _message_close_buy: str = '{datetime}, 【下单】卖平, 委托单号：{order_id}, {volume}手, 价格：{price}'
+    _message_close_sell: str = '{datetime}, 【下单】买平, 委托单号：{order_id}, {volume}手, 价格：{price}'
+    _message_fill: str = '{datetime}, 【成交】成交, 委托单号：{order_id}, {volume}手, 价格：{price}'
 
     def __init__(self, api: TqApi, symbol: str, capital: float, safety_rate: float = 0.6):
         self._tz_settlement = tz_settlement
@@ -42,9 +46,13 @@ class StrategyBase(object):
         self._logger = self._get_logger()
         self._symbol = symbol
         self._capital = capital
+        self._safety_rate = safety_rate
 
-        self._ticks = self._api.get_tick_serial(self._symbol)
-        self._klines = self._api.get_kline_serial(self._symbol, 60)
+        self._tq_account = self._api.get_account()
+        self._tq_quote = self._api.get_quote(self._symbol)
+        self._tq_order = self._api.get_order()
+        self._tq_ticks = self._api.get_tick_serial(self._symbol)
+        self._tq_klines = self._api.get_kline_serial(self._symbol, 60)
 
     @property
     def name(self) -> str:
@@ -92,11 +100,11 @@ class StrategyBase(object):
             return False
 
     @property
-    def trading_time(self) -> List[TradingTime]:
+    def trading_time(self) -> List[QWTradingTime]:
         return self._trading_time_list
 
     def is_valid_trading_time(self, t: time) -> bool:
-        tt: TradingTime
+        tt: QWTradingTime
         for tt in self._trading_time_list:
             if tt.open <= t <= tt.close:
                 return True

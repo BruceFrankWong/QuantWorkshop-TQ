@@ -81,7 +81,7 @@ product_list: dict = {
         'a',    # 豆一
         'b',    # 豆二
     ],
-    Exchange.CFFEX: [
+    QWExchange.CFFEX: [
         'IF',   # 沪深
         'IH',   # 上证
         'IC',   # 中证
