@@ -2,7 +2,6 @@
 
 __author__ = 'Bruce Frank Wong'
 
-
 """
 爆米花策略
 无脑买入，加一跳卖出。
@@ -32,12 +31,11 @@ from ..define import (
     QWPositionManager
 )
 
-
 MAIN_CONTRACT: list = [
-    {'yyyy_mm': '2016-01', 'symbol': '1605'},      # 换月日期：2015-09-18
+    {'yyyy_mm': '2016-01', 'symbol': '1605'},  # 换月日期：2015-09-18
     {'yyyy_mm': '2016-02', 'symbol': '1605'},
-    {'yyyy_mm': '2016-03', 'symbol': '1609'},      # 换月日期：2016-02-22
-    {'yyyy_mm': '2016-04', 'symbol': '1701'},      # 换月日期：2016-03-30
+    {'yyyy_mm': '2016-03', 'symbol': '1609'},  # 换月日期：2016-02-22
+    {'yyyy_mm': '2016-04', 'symbol': '1701'},  # 换月日期：2016-03-30
     {'yyyy_mm': '2016-05', 'symbol': '1701'},
     {'yyyy_mm': '2016-06', 'symbol': '1701'},
     {'yyyy_mm': '2016-07', 'symbol': '1701'},
@@ -45,51 +43,51 @@ MAIN_CONTRACT: list = [
     {'yyyy_mm': '2016-09', 'symbol': '1701'},
     {'yyyy_mm': '2016-10', 'symbol': '1701'},
     {'yyyy_mm': '2016-11', 'symbol': '1701'},
-    {'yyyy_mm': '2016-12', 'symbol': '1705'},      # 换月日期：2016-11-22
+    {'yyyy_mm': '2016-12', 'symbol': '1705'},  # 换月日期：2016-11-22
     {'yyyy_mm': '2017-01', 'symbol': '1705'},
     {'yyyy_mm': '2017-02', 'symbol': '1705'},
-    {'yyyy_mm': '2017-03', 'symbol': '1709'},      # 换月日期：2017-03-14
+    {'yyyy_mm': '2017-03', 'symbol': '1709'},  # 换月日期：2017-03-14
     {'yyyy_mm': '2017-04', 'symbol': '1709'},
     {'yyyy_mm': '2017-05', 'symbol': '1709'},
     {'yyyy_mm': '2017-06', 'symbol': '1709'},
     {'yyyy_mm': '2017-07', 'symbol': '1709'},
-    {'yyyy_mm': '2017-08', 'symbol': '1801'},      # 换月日期：2017-08-03
+    {'yyyy_mm': '2017-08', 'symbol': '1801'},  # 换月日期：2017-08-03
     {'yyyy_mm': '2017-09', 'symbol': '1801'},
     {'yyyy_mm': '2017-10', 'symbol': '1801'},
     {'yyyy_mm': '2017-11', 'symbol': '1801'},
-    {'yyyy_mm': '2017-12', 'symbol': '1805'},      # 换月日期：2017-12-07
+    {'yyyy_mm': '2017-12', 'symbol': '1805'},  # 换月日期：2017-12-07
     {'yyyy_mm': '2018-01', 'symbol': '1805'},
     {'yyyy_mm': '2018-02', 'symbol': '1805'},
     {'yyyy_mm': '2018-03', 'symbol': '1805'},
-    {'yyyy_mm': '2018-04', 'symbol': '1809'},      # 换月日期：2018-03-30
+    {'yyyy_mm': '2018-04', 'symbol': '1809'},  # 换月日期：2018-03-30
     {'yyyy_mm': '2018-05', 'symbol': '1809'},
     {'yyyy_mm': '2018-06', 'symbol': '1809'},
-    {'yyyy_mm': '2018-07', 'symbol': '1901'},      # 换月日期：2018-07-11
+    {'yyyy_mm': '2018-07', 'symbol': '1901'},  # 换月日期：2018-07-11
     {'yyyy_mm': '2018-08', 'symbol': '1901'},
     {'yyyy_mm': '2018-09', 'symbol': '1901'},
     {'yyyy_mm': '2018-10', 'symbol': '1901'},
     {'yyyy_mm': '2018-11', 'symbol': '1901'},
-    {'yyyy_mm': '2018-12', 'symbol': '1905'},      # 换月日期：2018-11-20
+    {'yyyy_mm': '2018-12', 'symbol': '1905'},  # 换月日期：2018-11-20
     {'yyyy_mm': '2019-01', 'symbol': '1905'},
     {'yyyy_mm': '2019-02', 'symbol': '1905'},
     {'yyyy_mm': '2019-03', 'symbol': '1905'},
-    {'yyyy_mm': '2019-04', 'symbol': '1909'},      # 换月日期：2019-03-27
+    {'yyyy_mm': '2019-04', 'symbol': '1909'},  # 换月日期：2019-03-27
     {'yyyy_mm': '2019-05', 'symbol': '1909'},
     {'yyyy_mm': '2019-06', 'symbol': '1909'},
     {'yyyy_mm': '2019-07', 'symbol': '1909'},
-    {'yyyy_mm': '2019-08', 'symbol': '2001'},      # 换月日期：2019-08-06
+    {'yyyy_mm': '2019-08', 'symbol': '2001'},  # 换月日期：2019-08-06
     {'yyyy_mm': '2019-09', 'symbol': '2001'},
     {'yyyy_mm': '2019-10', 'symbol': '2001'},
     {'yyyy_mm': '2019-11', 'symbol': '2001'},
-    {'yyyy_mm': '2019-12', 'symbol': '2005'},      # 换月日期：2019-12-03
+    {'yyyy_mm': '2019-12', 'symbol': '2005'},  # 换月日期：2019-12-03
     {'yyyy_mm': '2020-01', 'symbol': '2005'},
     {'yyyy_mm': '2020-02', 'symbol': '2005'},
-    {'yyyy_mm': '2020-03', 'symbol': '2009'},      # 换月日期：2020-03-11
+    {'yyyy_mm': '2020-03', 'symbol': '2009'},  # 换月日期：2020-03-11
     {'yyyy_mm': '2020-04', 'symbol': '2009'},
     {'yyyy_mm': '2020-05', 'symbol': '2009'},
     {'yyyy_mm': '2020-06', 'symbol': '2009'},
     {'yyyy_mm': '2020-07', 'symbol': '2009'},
-    {'yyyy_mm': '2020-08', 'symbol': '2101'},      # 换月日期：2020-08-07
+    {'yyyy_mm': '2020-08', 'symbol': '2101'},  # 换月日期：2020-08-07
     {'yyyy_mm': '2020-09', 'symbol': '2101'},
 ]
 
@@ -97,16 +95,12 @@ MAIN_CONTRACT: list = [
 class PopcornStrategy(StrategyBase):
     _name: str = 'Popcorn'
 
-    _margin_per_lot: float = 2000.0     # 每手保证金（大约）
+    _margin_per_lot: float = 2000.0  # 每手保证金（大约）
 
     _close_fluctuation: int
     _closeout: int
     _lots_per_order: int
     _max_fluctuation: int
-
-    _tq_position: Position
-    _tq_quote: Quote
-    _tq_order: Entity
 
     _order_manager: QWOrderManager
 
@@ -114,10 +108,10 @@ class PopcornStrategy(StrategyBase):
                  api: TqApi,
                  capital: float,
                  safety_rate: float,
-                 close_fluctuation: int,    # 获利价差
-                 max_fluctuation: int,      # 报价范围
-                 closeout: int,             # 强平价差
-                 lots_per_order: int,       # 每笔委托手数
+                 close_fluctuation: int,  # 获利价差
+                 max_fluctuation: int,  # 报价范围
+                 closeout: int,  # 强平价差
+                 lots_per_order: int,  # 每笔委托手数
                  lots_per_price: int
                  ):
         super().__init__(api=api, symbol='DCE.c2101', capital=capital, safety_rate=safety_rate)
@@ -162,7 +156,7 @@ class PopcornStrategy(StrategyBase):
             return True
         else:
             return False
-    
+
     def run(self):
         current_time: time
         order: Order
@@ -180,14 +174,18 @@ class PopcornStrategy(StrategyBase):
                 current_time = datetime.fromisoformat(self._tq_quote.datetime).time()
 
                 # 开仓条件满足时，开仓
-                if self.is_valid_trading_time(current_time) and self.is_open_condition_met:
+                x: int = (self._order_manager.unfilled_lots_at_price(current_ask_price1) +
+                          self._order_manager.unfilled_lots_at_price(current_bid_price1))
+                if (self.is_valid_trading_time(current_time) and
+                        (self._tq_position.pos_long + self._tq_position.pos_short) < self.max_lots and
+                        x < self._lots_per_price):
                     order_open = self._api.insert_order(symbol=self._symbol,
                                                         direction='BUY',
                                                         offset='OPEN',
                                                         volume=self._lots_per_order,
                                                         limit_price=current_ask_price1
                                                         )
-                    self._api.wait_update()     # 等待生成 order_id
+                    self._api.wait_update()  # 等待生成 order_id
                     self._order_manager.add(order_open)
                     self._logger.info(self._message_open_buy.format(datetime=self._tq_quote.datetime,
                                                                     volume=order_open.volume_orign,

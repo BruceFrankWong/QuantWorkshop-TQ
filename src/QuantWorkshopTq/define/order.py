@@ -136,8 +136,6 @@ class QWOrderManager(object):
         该委托单可能是开仓单或者平仓单。
         """
         unique_id: str = self._make_unique_id(order)
-        print('unique_id: ', unique_id)
-        print(self._unfilled_order_list)
 
         # 在 unfilled_order_list 中去除记录
         self._unfilled_order_list.remove(unique_id)
@@ -309,7 +307,13 @@ class QWOrderManager(object):
         return result
 
     def unfilled_lots_at_price(self, p: float) -> int:
-        pass
+        if p not in self._unfilled_order_price_dict.keys():
+            return 0
+        lots: int = 0
+        unique_id: str
+        for unique_id in self._unfilled_order_price_dict[p]:
+            lots += self._order_dict[unique_id].volume_orign
+        return lots
 
     def save(self) -> None:
         pass

@@ -20,8 +20,8 @@ from QuantWorkshopTq.strategy import StrategyBase, PopcornStrategy
 if __name__ == '__main__':
     # 自定义变量
     backtest_capital: float = 100000.0
-    backtest_start_date: date = date(2020, 8, 1)
-    backtest_end_date: date = date(2020, 9, 15)
+    backtest_start_date: date = date(2020, 9, 10)
+    backtest_end_date: date = date(2020, 9, 10)
 
     # 加载 .env 变量
     load_dotenv(find_dotenv())

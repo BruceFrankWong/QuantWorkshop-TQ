@@ -10,7 +10,7 @@ from datetime import datetime, date, time, timezone, timedelta
 
 from pandas import DataFrame
 from tqsdk import TqApi
-from tqsdk.objs import Account, Quote, Order
+from tqsdk.objs import Account, Quote, Order, Position
 
 from QuantWorkshopTq.define import tz_beijing, tz_settlement, QWTradingTime
 
@@ -31,6 +31,7 @@ class StrategyBase(object):
     _tq_account: Account
     _tq_quote: Quote
     _tq_order: Order
+    _tq_position: Position
     _tq_ticks: DataFrame
     _tq_klines: DataFrame
 
@@ -51,6 +52,7 @@ class StrategyBase(object):
         self._tq_account = self._api.get_account()
         self._tq_quote = self._api.get_quote(self._symbol)
         self._tq_order = self._api.get_order()
+        self._tq_position = self._api.get_position(self._symbol)
         self._tq_ticks = self._api.get_tick_serial(self._symbol)
         self._tq_klines = self._api.get_kline_serial(self._symbol, 60)
 
