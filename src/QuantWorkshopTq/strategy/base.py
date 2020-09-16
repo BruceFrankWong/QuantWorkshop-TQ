@@ -11,7 +11,7 @@ from datetime import datetime, date, time, timezone, timedelta
 from pandas import DataFrame
 from tqsdk import TqApi
 
-from QuantWorkshopTq.define import tz_beijing, tz_settlement, TradingTime
+from QuantWorkshopTq.define import tz_beijing, tz_settlement, QWTradingTime
 
 
 class StrategyBase(object):
@@ -22,7 +22,7 @@ class StrategyBase(object):
 
     _tz_beijing: timezone
     _tz_settlement: timezone
-    _trading_time_list: List[TradingTime]
+    _trading_time_list: List[QWTradingTime]
 
     _logger: logging.Logger
 
@@ -92,11 +92,11 @@ class StrategyBase(object):
             return False
 
     @property
-    def trading_time(self) -> List[TradingTime]:
+    def trading_time(self) -> List[QWTradingTime]:
         return self._trading_time_list
 
     def is_valid_trading_time(self, t: time) -> bool:
-        tt: TradingTime
+        tt: QWTradingTime
         for tt in self._trading_time_list:
             if tt.open <= t <= tt.close:
                 return True
