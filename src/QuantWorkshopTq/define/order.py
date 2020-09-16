@@ -3,8 +3,8 @@
 __author__ = 'Bruce Frank Wong'
 
 
-from typing import Dict, List
-from datetime import datetime
+from typing import Dict, List, Tuple, NewType
+from datetime import datetime, date
 
 from tqsdk.objs import Order
 
@@ -85,9 +85,11 @@ class QWOrderManager(object):
         交易状态——未成交、部分成交、完全成交、已撤销
     """
     _order_dict: Dict[str, Order]
-    _finished_order_list: List[str]             # 完结委托单
-    _position_order_list: List[str]             # 开仓委托单，未平仓，所以持仓
-    _unfilled_order_list: List[str]             # 未成交委托单，包括开仓单和平仓单
+    _unfilled_order_list: List[str]     # 未成交委托单，包括开仓单和平仓单
+    _position_order_list: List[str]     # 未平仓委托单（所以持仓）
+    _finished_order_list: List[str]     # 完结委托单
+    _canceled_order_list: List[str]     # 已撤销委托单
+    _paired_order_dict: Dict[str, str]  # 配对委托单
     _unfilled_order_price_dict: Dict[float, List[str]]      # 未成交委托单的价格索引
 
     def __init__(self) -> None:
@@ -95,6 +97,7 @@ class QWOrderManager(object):
         self._finished_order_list = []
         self._position_order_list = []
         self._unfilled_order_list = []
+        self._canceled_order_list = []
         self._unfilled_order_price_dict = {}
 
     @staticmethod
@@ -108,14 +111,15 @@ class QWOrderManager(object):
             C, 中金所
             E, 能源所
         """
-        return datetime.today().isoformat() + '_' + order.exchange_id + '_' + order.exchange_order_id
+        return date.today().isoformat() + '_' + order.exchange_id + '_' + order.exchange_order_id
 
     def add(self, order: Order) -> None:
         """增加一张委托单
         该委托单可能是开仓单或者平仓单。
-        该委托单初始状态必然是未成交。
         """
         unique_id: str = self._make_unique_id(order)
+
+        # 在 order_dict 中增加记录
         self._order_dict[unique_id] = order
 
         # 在 unfilled_order_list 中增加记录
@@ -130,7 +134,29 @@ class QWOrderManager(object):
     def fill(self, order: Order) -> None:
         """成交一张委托单
         该委托单可能是开仓单或者平仓单。
-        该委托单初始状态必然是已成交。
+        """
+        unique_id: str = self._make_unique_id(order)
+        print('unique_id: ', unique_id)
+        print(self._unfilled_order_list)
+
+        # 在 unfilled_order_list 中去除记录
+        self._unfilled_order_list.remove(unique_id)
+
+        # 在 order_price_dict 中去除记录
+        if len(self._unfilled_order_price_dict[order.limit_price]) > 1:
+            self._unfilled_order_price_dict[order.limit_price].remove(unique_id)
+        else:
+            del self._unfilled_order_price_dict[order.limit_price]
+
+        # 如果 order 是平仓单，在 finished_order_list 中增加记录；否则在 position_order_list 中增加记录。
+        if order.offset == 'CLOSE' or order.offset == 'CLOSETODAY':
+            self._finished_order_list.append(unique_id)
+        else:
+            self._position_order_list.append(unique_id)
+
+    def cancel(self, order: Order) -> None:
+        """撤销一张委托单
+        该委托单可能是开仓单或者平仓单。
         """
         unique_id: str = self._make_unique_id(order)
 
@@ -143,106 +169,143 @@ class QWOrderManager(object):
         else:
             del self._unfilled_order_price_dict[order.limit_price]
 
-        # 如果 order 是平仓单
-        if order.offset == 'CLOSE' or order.offset == 'CLOSETODAY':
-            self._finished_order_list.append(unique_id)
-        else:
-            self._position_order_list.append(unique_id)
+        # 在 canceled_order_list 中增加记录
+        self._canceled_order_list.append(unique_id)
 
-    def cancel(self, order: Order) -> None:
-        """撤销一张委托单
-        该委托单可能是开仓单或者平仓单。
-        该委托单初始状态必然是已撤销。
+    @property
+    def unfilled_order_list(self) -> List[Order]:
+        """未成交委托单列表
         """
-        unique_id: str = self._make_unique_id(order)
-
-        # 在 unfilled_order_list 中去除记录
-        self._unfilled_order_list.remove(unique_id)
-
-        if len(self._unfilled_order_price_dict[order.price]) > 1:
-            self._unfilled_order_price_dict[order.price].remove(order)
-        else:
-            del self._unfilled_order_price_dict[order.price]
-
-        self._order_list.remove(order)
+        result: List[Order] = []
+        unique_id: str
+        for unique_id in self._unfilled_order_list:
+            result.append(self._order_dict[unique_id])
+        return result
 
     @property
-    def order_list(self) -> list:
-        return self._order_list
-
-    @property
-    def total_lots(self) -> int:
+    def unfilled_lots(self) -> int:
+        """
+        未成交手数。
+        :return:
+        """
         lots: int = 0
-        for order in self._order_list:
-            lots += order.lots
+        order: Order
+        for order in self.unfilled_order_list:
+            lots += order.volume_orign
         return lots
 
     @property
-    def total_lots_for_buy(self) -> int:
+    def unfilled_lots_for_buy(self) -> int:
         lots: int = 0
-        for order in self._order_list:
+        order: Order
+        for order in self.unfilled_order_list:
             if order.direction == 'BUY':
-                lots += order.lots
+                lots += order.volume_orign
         return lots
 
     @property
-    def total_lots_for_sell(self) -> int:
+    def unfilled_lots_for_sell(self) -> int:
         lots: int = 0
-        for order in self._order_list:
+        order: Order
+        for order in self.unfilled_order_list:
             if order.direction == 'SELL':
-                lots += order.lots
+                lots += order.volume_orign
+        return lots
+
+    @property
+    def unfilled_lots_for_open(self) -> int:
+        """
+        未成交开仓手数。
+        :return:
+        """
+        lots: int = 0
+        order: Order
+        for order in self.unfilled_order_list:
+            if order.offset == 'OPEN':
+                lots += order.volume_orign
+        return lots
+
+    @property
+    def unfilled_lots_for_close(self) -> int:
+        """
+        未成交平仓手数。
+        :return:
+        """
+        lots: int = 0
+        order: Order
+        for order in self.unfilled_order_list:
+            if order.offset == 'CLOSE' or order.offset == 'CLOSETODAY':
+                lots += order.volume_orign
         return lots
 
     @property
     def highest_price(self) -> float:
+        """最高价
+        """
         return max(self._unfilled_order_price_dict.keys())
 
     @property
     def lowest_price(self) -> float:
+        """最低价
+        """
         return min(self._unfilled_order_price_dict.keys())
 
     @property
-    def highest_bid_price(self) -> float:
-        price: float = self._order_list[0].price
-        order: QWOrder
-        for order in self._order_list:
-            if order.price > price and order.direction == 'SELL':
-                price = order.price
-        return price
+    def lowest_bid_price(self) -> float:
+        """最低买价
+        """
+        unique_id: str
+        price_list: list = list(self._unfilled_order_price_dict.keys())
+        price_list.sort(reverse=False)
+        for price in price_list:
+            for unique_id in self._unfilled_order_price_dict[price]:
+                if self._order_dict[unique_id].direction == 'BUY':
+                    return price
 
     @property
-    def lowest_ask_price(self) -> float:
-        price: float = self._order_list[0].price
-        order: QWOrder
-        for order in self._order_list:
-            if order.price < price and order.direction == 'BUY':
-                price = order.price
-        return price
+    def highest_ask_price(self) -> float:
+        """最高卖价
+        """
+        unique_id: str
+        price_list: list = list(self._unfilled_order_price_dict.keys())
+        price_list.sort(reverse=True)
+        for price in price_list:
+            for unique_id in self._unfilled_order_price_dict[price]:
+                if self._order_dict[unique_id].direction == 'SELL':
+                    return price
 
     @property
-    def highest_bid_order(self) -> List[QWOrder]:
-        order: QWOrder
-        order_list: list = []
-        for order in self._unfilled_order_price_dict[self.highest_bid_price]:
-            if order.direction == QWDirection.Sell:
-                order_list.append(order)
-        return order_list
+    def lowest_bid_order(self) -> List[str]:
+        """最低买开委托单
+        """
+        result: List[str] = []
+        unique_id: str
+        price_list: list = list(self._unfilled_order_price_dict.keys())
+        price_list.sort(reverse=False)
+        for price in price_list:
+            for unique_id in self._unfilled_order_price_dict[price]:
+                if self._order_dict[unique_id].direction == 'BUY':
+                    result.append(unique_id)
+            if len(result) > 0:
+                break
+        return result
 
     @property
-    def lowest_ask_order(self) -> List[QWOrder]:
-        order: QWOrder
-        order_list: list = []
-        for order in self._unfilled_order_price_dict[self.lowest_ask_price]:
-            if order.direction == QWDirection.Buy:
-                order_list.append(order)
-        return order_list
-
-    @property
-    def unclosed_order(self) -> list:
-        result: list = []
-        for order in self._order_list:
-            if order.close_order_id is '':
-                result.append(order.order_id)
+    def highest_ask_order(self) -> List[str]:
+        """
+        最高价卖单（包括卖开、卖平）。
+        :return:
+        """
+        result: List[str] = []
+        unique_id: str
+        price_list: list = list(self._unfilled_order_price_dict.keys())
+        price_list.sort(reverse=True)
+        for price in price_list:
+            for unique_id in self._unfilled_order_price_dict[price]:
+                if self._order_dict[unique_id].direction == 'SELL':
+                    result.append(unique_id)
+            if len(result) > 0:
+                break
         return result
 
     def unfilled_lots_at_price(self, p: float) -> int:

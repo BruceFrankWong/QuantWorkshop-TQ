@@ -18,7 +18,8 @@ from enum import Enum
 
 from pandas import DataFrame
 from tqsdk import TqApi, TqBacktest, TqSim, TargetPosTask
-from tqsdk.objs import Account, Position, Quote, Order, Entity
+from tqsdk.objs import Account, Position, Quote, Order
+from tqsdk.entity import Entity
 
 from .base import StrategyBase
 from ..define import (
@@ -103,9 +104,9 @@ class PopcornStrategy(StrategyBase):
     _lots_per_order: int
     _max_fluctuation: int
 
-    _position: Position
-    _quote: Quote
-    _realtime_order: Entity
+    _tq_position: Position
+    _tq_quote: Quote
+    _tq_order: Entity
 
     _order_manager: QWOrderManager
 
@@ -142,27 +143,11 @@ class PopcornStrategy(StrategyBase):
         return math.floor(self._capital * self._safety_rate / self._margin_per_lot)
 
     @property
-    def position_lots(self) -> int:
-        """持仓手数。
-        持仓手数 = 已成交且未平仓的委托单总手数
-        :return:
-        """
-        return self._order_manager.total_lots
-
-    @property
-    def ordered_lots(self) -> int:
-        """挂单手数。
-        挂单手数 = 已发出但尚未成交的委托单总手数。
-        :return:
-        """
-        return self._order_manager.total_lots
-
-    @property
     def available_lots(self) -> int:
         """可用手数。
         可用手数 = 最大手数 - 持仓手数 - 挂单手数
         """
-        return self.max_lots - self.position_lots - self.ordered_lots
+        return self.max_lots - self._order_manager.unfilled_lots
 
     def is_open_condition_met(self, t: time, p: float) -> bool:
         """开仓条件是否满足
@@ -173,7 +158,7 @@ class PopcornStrategy(StrategyBase):
         """
         if (self.is_valid_trading_time(t) and
                 self.available_lots > 0 and
-                self._order_manager.order_lots_at_price(p) < self._lots_per_price)):
+                self._order_manager.unfilled_lots_at_price(p) < self._lots_per_price):
             return True
         else:
             return False
@@ -181,25 +166,18 @@ class PopcornStrategy(StrategyBase):
     def run(self):
         current_time: time
         order: Order
-        order_reverse: Order
-        order_to_be_closed: List[Order] = []
-
-        # self._ticks = self._api.get_tick_serial(self._symbol)
-        # self._klines = self._api.get_kline_serial(self._symbol, 60)
-        self._quote = self._api.get_quote(self._symbol)
-        self._position = self._api.get_position()
-        self._realtime_order = self._api.get_order()
+        order_close: Order
 
         self._logger.info(f'资金: {self._capital}, 最大持仓: {self.max_lots}')
         while True:
             self._api.wait_update()
 
             # 当盘口行情发生变化
-            if self._api.is_changing(self._quote, 'ask_price1'):
-                current_ask_price1 = self._quote.ask_price1
-                current_bid_price1 = self._quote.bid_price1
+            if self._api.is_changing(self._tq_quote, 'ask_price1'):
+                current_ask_price1 = self._tq_quote.ask_price1
+                current_bid_price1 = self._tq_quote.bid_price1
 
-                current_time = datetime.fromisoformat(self._quote.datetime).time()
+                current_time = datetime.fromisoformat(self._tq_quote.datetime).time()
 
                 # 开仓条件满足时，开仓
                 if self.is_valid_trading_time(current_time) and self.is_open_condition_met:
@@ -210,17 +188,10 @@ class PopcornStrategy(StrategyBase):
                                                         limit_price=current_ask_price1
                                                         )
                     self._api.wait_update()     # 等待生成 order_id
-                    self._order_manager.add(QWOrder(order_id=order_open.exchange_order_id,
-                                                    price=order_open.limit_price,
-                                                    lots=order_open.volume_orign,
-                                                    direction=QWDirection.Buy,
-                                                    offset=QWOffset.Open
-                                                    )
-                                            )
-                    order_to_be_closed.append(order_open)
-                    self._logger.info(self._message_open_buy.format(datetime=self._quote.datetime,
-                                                                    volume=self._lots_per_order,
-                                                                    price=current_ask_price1,
+                    self._order_manager.add(order_open)
+                    self._logger.info(self._message_open_buy.format(datetime=self._tq_quote.datetime,
+                                                                    volume=order_open.volume_orign,
+                                                                    price=order_open.limit_price,
                                                                     order_id=order_open.exchange_order_id
                                                                     )
                                       )
@@ -235,34 +206,60 @@ class PopcornStrategy(StrategyBase):
                 #                                    )
                 #     self._order_manager.add(order)
 
+            # TODO: 为什么 tq_order 内部数据类型是 tqsdk.objs.Quote？ 不应该是 tqsdk.objs.Order 吗？
+            # if self._api.is_changing(self._tq_order):
+            #     tq_order_id: str
+            #
+            #     for tq_order_id in self._tq_order:
+            #         print('TQ order id :', tq_order_id, '; object type: ', type(self._tq_quote))
+            #         print(self._tq_quote.items())
+
             # 尝试平仓
-            for order in order_to_be_closed:
+            for order in self._order_manager.unfilled_order_list:
                 if order.status == 'FINISHED':
-                    if order.direction == 'BUY':
-                        order_reverse = self._api.insert_order(symbol=self._symbol,
-                                                               direction='SELL',
-                                                               offset='CLOSE',
-                                                               volume=order.volume_orign,
-                                                               limit_price=order.limit_price + 1
-                                                               )
-                        # self._order_manager.add(order)
-                        order_to_be_closed.remove(order)
-                        self._logger.info(self._message_close_buy.format(datetime=self._quote.datetime,
+                    self._logger.info(self._message_fill.format(datetime=self._tq_quote.datetime,
+                                                                volume=order.volume_orign,
+                                                                price=order.limit_price,
+                                                                order_id=order.exchange_order_id)
+                                      )
+                    self._order_manager.fill(order)
+                    if order.offset == 'OPEN':
+                        if order.direction == 'BUY':
+                            order_close = self._api.insert_order(symbol=self._symbol,
+                                                                 direction='SELL',
+                                                                 offset='CLOSE',
+                                                                 volume=order.volume_orign,
+                                                                 limit_price=order.limit_price + self._close_fluctuation
+                                                                 )
+                            self._api.wait_update()  # 等待生成 order_id
+                            self._order_manager.add(order_close)
+                            self._logger.info(self._message_close_buy.format(datetime=self._tq_quote.datetime,
+                                                                             volume=order_close.volume_orign,
+                                                                             price=order_close.limit_price,
+                                                                             order_id=order_close.exchange_order_id)
+                                              )
+                        else:
+                            order_close = self._api.insert_order(symbol=self._symbol,
+                                                                 direction='BUY',
+                                                                 offset='CLOSE',
+                                                                 volume=order.volume_orign,
+                                                                 limit_price=order.limit_price - self._close_fluctuation
+                                                                 )
+                            self._api.wait_update()  # 等待生成 order_id
+                            self._order_manager.add(order_close)
+                            self._logger.info(self._message_close_sell.format(datetime=self._tq_quote.datetime,
+                                                                              volume=order_close.volume_orign,
+                                                                              price=order_close.limit_price,
+                                                                              order_id=order_close.exchange_order_id)
+                                              )
+                    else:
+                        self._logger.info(self._message_close_buy.format(datetime=self._tq_quote.datetime,
                                                                          volume=order.volume_orign,
-                                                                         price=order.limit_price + 1,
+                                                                         price=order.limit_price,
                                                                          order_id=order.exchange_order_id)
                                           )
-                    else:
-                        order_reverse = self._api.insert_order(symbol=self._symbol,
-                                                               direction='BUY',
-                                                               offset='CLOSE',
-                                                               volume=order.volume_orign,
-                                                               limit_price=order.limit_price - 1
-                                                               )
-                        # self._order_manager.add(order)
-                        order_to_be_closed.remove(order)
 
-            self._api.wait_update()
+            # self._api.wait_update()
             # if self._api.is_changing(self._realtime_order):
             #     self._logger.info('order变化', self._realtime_order.items())
 
