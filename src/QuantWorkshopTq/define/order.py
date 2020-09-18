@@ -111,7 +111,10 @@ class QWOrderManager(object):
             C, 中金所
             E, 能源所
         """
-        return date.today().isoformat() + '_' + order.exchange_id + '_' + order.exchange_order_id
+        if len(order.exchange_order_id) > 0:
+            return date.today().isoformat() + '_' + order.exchange_id + '_' + order.exchange_order_id
+        else:
+            return date.today().isoformat() + '_' + order.exchange_id + '_' + order.order_id
 
     def add(self, order: Order) -> None:
         """增加一张委托单
@@ -138,7 +141,13 @@ class QWOrderManager(object):
         unique_id: str = self._make_unique_id(order)
 
         # 在 unfilled_order_list 中去除记录
-        self._unfilled_order_list.remove(unique_id)
+        try:
+            self._unfilled_order_list.remove(unique_id)
+        except ValueError:
+            print(f'unique_id: {unique_id}')
+            print('unique_id in self._unfilled_order_list:')
+            for item in self._unfilled_order_list:
+                print(item)
 
         # 在 order_price_dict 中去除记录
         if len(self._unfilled_order_price_dict[order.limit_price]) > 1:
@@ -172,7 +181,9 @@ class QWOrderManager(object):
 
     @property
     def unfilled_order_list(self) -> List[Order]:
-        """未成交委托单列表
+        """
+        未成交委托单列表。
+        :return:
         """
         result: List[Order] = []
         unique_id: str

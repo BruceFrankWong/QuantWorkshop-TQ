@@ -9,7 +9,7 @@ from .base import StrategyBase
 
 
 class DoubleMovingAverage(StrategyBase):
-    _klines: DataFrame
+    _tq_klines: DataFrame
 
     def __init__(self, api: TqApi, symbol: str, capital: float) -> None:
         super().__init__(api=api, symbol=symbol)

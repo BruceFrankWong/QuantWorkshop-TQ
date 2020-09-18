@@ -123,6 +123,8 @@ class PopcornStrategy(StrategyBase):
 
         self._order_manager = QWOrderManager()
 
+        self._tq_position = self._api.get_position(self._symbol)
+
         self._trading_time_list = [
             QWTradingTime(time(hour=21, minute=0, second=0), time(hour=23, minute=0, second=0)),
             QWTradingTime(time(hour=9, minute=0, second=0), time(hour=11, minute=30, second=0)),
@@ -141,7 +143,7 @@ class PopcornStrategy(StrategyBase):
         """可用手数。
         可用手数 = 最大手数 - 持仓手数 - 挂单手数
         """
-        return self.max_lots - self._order_manager.unfilled_lots
+        return self.max_lots - self._tq_position.pos_long - self._tq_position.pos_short
 
     def is_open_condition_met(self, t: time, p: float) -> bool:
         """开仓条件是否满足
@@ -158,27 +160,36 @@ class PopcornStrategy(StrategyBase):
             return False
 
     def run(self):
+        current_datetime: datetime
         current_time: time
-        order: Order
+        order_open: Order
         order_close: Order
+        ordered_lots: int
 
         self._logger.info(f'资金: {self._capital}, 最大持仓: {self.max_lots}')
         while True:
             self._api.wait_update()
 
             # 当盘口行情发生变化
-            if self._api.is_changing(self._tq_quote, 'ask_price1'):
-                current_ask_price1 = self._tq_quote.ask_price1
-                current_bid_price1 = self._tq_quote.bid_price1
+            if self._api.is_changing(self._tq_quote, ['ask_price1', 'bid_price1']):
 
-                current_time = datetime.fromisoformat(self._tq_quote.datetime).time()
+                # tq_quote 中的信息
+                current_ask_price1 = self._tq_quote.ask_price1  # 当前卖一价
+                current_bid_price1 = self._tq_quote.bid_price1  # 当前买一价
+                current_datetime = datetime.fromisoformat(self._tq_quote.datetime)  # 当前 datetime
+                current_time = current_datetime.time()                              # 当前 time
+
+                # log 当前状态
+                self.log_status(datetime.fromisoformat(self._tq_quote.datetime))
 
                 # 开仓条件满足时，开仓
-                x: int = (self._order_manager.unfilled_lots_at_price(current_ask_price1) +
-                          self._order_manager.unfilled_lots_at_price(current_bid_price1))
+
+                ordered_lots: int = (self._order_manager.unfilled_lots_at_price(current_ask_price1) +
+                                     self._order_manager.unfilled_lots_at_price(current_bid_price1))
+                self._logger.info(f'计算已开仓手数: {ordered_lots}')
                 if (self.is_valid_trading_time(current_time) and
                         (self._tq_position.pos_long + self._tq_position.pos_short) < self.max_lots and
-                        x < self._lots_per_price):
+                        ordered_lots < self._lots_per_price):
                     order_open = self._api.insert_order(symbol=self._symbol,
                                                         direction='BUY',
                                                         offset='OPEN',
@@ -187,12 +198,18 @@ class PopcornStrategy(StrategyBase):
                                                         )
                     self._api.wait_update()  # 等待生成 order_id
                     self._order_manager.add(order_open)
-                    self._logger.info(self._message_open_buy.format(datetime=self._tq_quote.datetime,
-                                                                    volume=order_open.volume_orign,
-                                                                    price=order_open.limit_price,
-                                                                    order_id=order_open.exchange_order_id
-                                                                    )
-                                      )
+                    # print(self._tq_ticks.iloc[-1])
+                    self._logger.info(
+                        self._message_trade.format(datetime=self._tq_quote.datetime,
+                                                   capital=self._tq_account.available,
+                                                   lots=self._order_manager.unfilled_lots,
+                                                   D=order_open.direction,
+                                                   O=order_open.offset,
+                                                   volume=order_open.volume_orign,
+                                                   price=order_open.limit_price,
+                                                   order_id=order_open.exchange_order_id
+                                                   )
+                    )
 
                 # 尝试撤单
                 # if self.is_open_condition(self._ticks.iloc[-1]['ask_price1']):

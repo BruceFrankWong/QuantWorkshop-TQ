@@ -2,6 +2,12 @@
 
 __author__ = 'Bruce Frank Wong'
 
+
+from typing import Dict, List
+
+from QuantWorkshopTq.define import QWExchange
+
+
 MAIN_CONTRACT: list = [
     {'yyyy_mm': '2016-01', 'symbol': '1605'},      # 换月日期：2015-09-18
     {'yyyy_mm': '2016-02', 'symbol': '1605'},
@@ -61,3 +67,89 @@ MAIN_CONTRACT: list = [
     {'yyyy_mm': '2020-08', 'symbol': '2101'},      # 换月日期：2020-08-07
     {'yyyy_mm': '2020-09', 'symbol': '2101'},
 ]
+
+
+def get_main_contract(exchange: QWExchange) -> list:
+    pass
+
+
+def get_exchange_futures(exchange: QWExchange) -> list:
+    pass
+
+
+def get_exchange_options(exchange: QWExchange) -> list:
+    pass
+
+
+product_list: dict = {
+    'options':
+        [
+            '玉米',
+            '豆粕',
+            '铁矿石',
+            '液化石油气',
+            '聚乙烯',
+            '聚氯乙烯',
+            '聚丙烯',
+            '棉花',
+            '白糖',
+            '菜粕',
+            'PTA',
+            '甲醇',
+            '动力煤',
+        ],
+
+    'futures':
+        [
+            '玉米',
+        ],
+}
+
+
+product_details: dict = {
+    '玉米': 'c',
+}
+
+
+futures_SHFE: List[str] = [
+    '黄金',
+    '白银',
+    '铜',
+    '铝',
+    '锌',
+    '铅',
+    '镍',
+    '锡',
+    '螺纹钢',
+    '线材',
+    '热轧卷板',
+    '不锈钢',
+]
+
+
+futures_INE: List[str] = [
+    '原油',
+    '低硫燃料油',
+    '20号胶',
+]
+
+futures_DCE: List[str] = [
+    '',
+]
+
+futures_CZCE: List[str] = [
+    '',
+]
+
+futures_CFFEX: List[str] = [
+    '',
+]
+
+# 各交易所的期货产品
+futures_exchange: Dict[QWExchange, List[str]] = {
+    QWExchange.SHFE: futures_SHFE,
+    QWExchange.INE: futures_INE,
+    QWExchange.DCE: futures_CZCE,
+    QWExchange.CZCE: futures_CZCE,
+    QWExchange.CFFEX: futures_CFFEX,
+}
