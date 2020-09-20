@@ -6,7 +6,7 @@ from typing import Dict, List
 
 from sqlalchemy.orm import relationship
 
-from sqlalchemy import Column, ForeignKey, String, Integer, Float, DateTime
+from sqlalchemy import Column, ForeignKey, String, Integer, Float, Date
 
 from . import ModelBase, db_session
 
@@ -19,11 +19,26 @@ class Exchange(ModelBase):
     fullname = Column(String, nullable=False, unique=True)
     symbol = Column(String, nullable=False, unique=True)
 
+    holiday_list = relationship('Holiday', back_populates='exchange')
     futures_list = relationship('Futures', back_populates='exchange')
     options_list = relationship('Options', back_populates='exchange')
 
     def __repr__(self):
         return f'<Exchange(name={self.name}, fullname={self.fullname}, abbr={self.symbol})>'
+
+
+class Holiday(ModelBase):
+    __tablename__ = 'holiday'
+
+    id = Column(Integer, primary_key=True)
+    begin = Column(Date, nullable=False)
+    end = Column(Date, nullable=False)
+    reason = Column(String)
+
+    exchange_id = Column(Integer, ForeignKey('exchange.id'), nullable=False)
+
+    def __repr__(self):
+        return f'<Holiday(name={self.name}, fullname={self.fullname}, abbr={self.symbol})>'
 
 
 class Product(ModelBase):
@@ -82,4 +97,3 @@ class Options(ModelBase):
         return f'<Options(name={self.name},' \
                f'exchange={db_session.query(Exchange).filter_by(id=self.exchange_id).one().symbol},' \
                f'symbol={self.symbol})>'
-

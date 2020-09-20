@@ -4,9 +4,15 @@ __author__ = 'Bruce Frank Wong'
 
 import csv
 import os.path
+from datetime import date
 
 from . import (db_session, get_application_path)
-from . import (Exchange, Futures, Options)
+from . import (
+    Exchange,
+    Holiday,
+    Futures,
+    Options
+)
 
 
 def init_exchange():
@@ -20,6 +26,18 @@ def init_exchange():
 
 def get_exchange_id(exchange: str) -> int:
     return db_session.query(Exchange).filter_by(symbol=exchange).one().id
+
+
+def init_holiday():
+    db_session.add_all([
+        Holiday(begin=date(2020, 1, 1), end=date(2020, 1, 1), reason='元旦'),
+        Holiday(begin=date(2020, 1, 24), end=date(2020, 1, 30), reason='春节'),
+        Holiday(begin=date(2020, 4, 4), end=date(2020, 4, 6), reason='清明节'),
+        Holiday(begin=date(2020, 5, 1), end=date(2020, 5, 5), reason='劳动节'),
+        Holiday(begin=date(2020, 6, 25), end=date(2020, 6, 27), reason='端午节'),
+        Holiday(begin=date(2020, 10, 1), end=date(2020, 10, 8), reason='国庆节、中秋节'),
+    ])
+    db_session.commit()
 
 
 def init_options():

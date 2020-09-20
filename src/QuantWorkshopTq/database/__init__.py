@@ -26,6 +26,7 @@ event.listen(db_engine, 'connect', _fk_pragma_on_connect)
 
 from .model import (
     Exchange,
+    Holiday,
     Product,
     Futures,
     Options
