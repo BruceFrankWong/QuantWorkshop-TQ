@@ -15,6 +15,7 @@ from dotenv import find_dotenv, load_dotenv
 from tqsdk import TqApi, TqBacktest, TqSim
 
 from QuantWorkshopTq.strategy import StrategyBase, PopcornStrategy
+from QuantWorkshopTq.strategy.scalping import scalping
 
 
 if __name__ == '__main__':
@@ -38,17 +39,18 @@ if __name__ == '__main__':
                           web_gui='http://127.0.0.1:8888',
                           auth='%s,%s' % (TQ_ACCOUNT, TQ_PASSWORD))
 
-    # 回测策略
-    backtest_strategy: StrategyBase
-    backtest_strategy = PopcornStrategy(api=tq_api,
-                                        capital=backtest_capital,
-                                        lots_per_order=3,
-                                        lots_per_price=6,
-                                        close_fluctuation=1,
-                                        closeout=4,
-                                        max_fluctuation=5,
-                                        safety_rate=0.8
-                                        )
-
-    # 运行回测
-    backtest_strategy.run()
+    # # 回测策略
+    # backtest_strategy: StrategyBase
+    # backtest_strategy = PopcornStrategy(api=tq_api,
+    #                                     capital=backtest_capital,
+    #                                     lots_per_order=3,
+    #                                     lots_per_price=6,
+    #                                     close_fluctuation=1,
+    #                                     closeout=4,
+    #                                     max_fluctuation=5,
+    #                                     safety_rate=0.8
+    #                                     )
+    #
+    # # 运行回测
+    # backtest_strategy.run()
+    scalping(tq_api)

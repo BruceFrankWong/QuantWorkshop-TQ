@@ -119,8 +119,10 @@ class PopcornStrategy(StrategyBase):
                 current_datetime = datetime.fromisoformat(self._tq_quote.datetime)  # 当前 datetime
                 current_time = current_datetime.time()                              # 当前 time
 
-                # log 当前状态
-                self.log_status(datetime.fromisoformat(self._tq_quote.datetime))
+                if current_time not in self._trading_time_list():
+                    # log 当前状态
+                    self.log_status(datetime.fromisoformat(self._tq_quote.datetime))
+                    break
 
                 # 开仓条件满足时，开仓
 
