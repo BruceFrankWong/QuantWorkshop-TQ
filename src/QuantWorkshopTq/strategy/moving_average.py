@@ -2,83 +2,92 @@
 
 __author__ = 'Bruce Frank Wong'
 
-from tqsdk import TqApi, TargetPosTask
-from tqsdk.tafunc import ma
-from pandas import DataFrame
+from typing import Any, Dict
+import time
 
-from .base import StrategyBase
+from tqsdk import TqApi, TargetPosTask, tafunc, BacktestFinished
+from tqsdk.objs import Account, Position, Quote, Order
+from pandas import DataFrame, Series
 
 
-class DoubleMovingAverage(StrategyBase):
-    _tq_klines: DataFrame
+def double_moving_average(api: TqApi, symbol: str, max_position: int = 10, fast: int = 5, slow: int = 20):
+    strategy_name: str = 'DoubleMovingAverage'
 
-    def __init__(self, api: TqApi, symbol: str, capital: float) -> None:
-        super().__init__(api=api, symbol=symbol)
+    api: TqApi = api
+    symbol: str = symbol
 
-    def available_position(self) -> int:
-        pass
+    timeout: int = 5
 
-    def try_open(self) -> None:
-        # 判断开仓条件
+    max_position: int = max_position
+    fast: int = fast
+    slow: int = slow
+
+    ma: DataFrame = DataFrame()
+
+    tq_account: Account = api.get_account()
+    tq_position: Position = api.get_position(symbol)
+    tq_candlestick: DataFrame = api.get_kline_serial(symbol=symbol, duration_seconds=24 * 60 * 60)
+    tq_target_pos = TargetPosTask(api, symbol)
+
+    deadline: float
+
+    try:
         while True:
-            self._api.wait_update()
-            if self._api.is_changing(self._klines):
-                ma = sum(self._klines.close.iloc[-15:]) / 15
-                print('最新价', self._klines.close.iloc[-1], 'MA', ma)
-                if self._klines.close.iloc[-1] > ma:
-                    print('最新价大于MA: 市价开仓')
-                    self._api.insert_order(symbol=self._symbol, direction='BUY', offset='OPEN', volume=5)
-                    break
+            deadline = time.time() + timeout
+            if not api.wait_update(deadline=deadline):
+                raise RuntimeError('没有在规定时间内获得数据！')
+            # api.wait_update()
 
-    def try_close(self) -> None:
-        # 判断平仓条件
-        while True:
-            self._api.wait_update()
-            if self._api.is_changing(self._klines):
-                ma = sum(self._klines.close.iloc[-15:]) / 15
-                print('最新价', self._klines.close.iloc[-1], 'MA', ma)
-                if self._klines.close.iloc[-1] < ma:
-                    print('最新价小于MA: 市价平仓')
-                    self._api.insert_order(symbol=self._symbol, direction='SELL', offset='CLOSE', volume=5)
-                    break
+            if api.is_changing(tq_candlestick):
+                ma['fast'] = tafunc.ma(tq_candlestick.close, fast)
+                ma['slow'] = tafunc.ma(tq_candlestick.close, slow)
 
-    def run(self):
-        self._klines = self._api.get_kline_serial(self._symbol)
-        while True:
-            self.try_open()
-            self.try_close()
-        self._api.close()
+                tq_candlestick['ma_fast'] = ma['fast']
+                tq_candlestick['ma_fast.color'] = 'green'
+                tq_candlestick['ma_slow'] = ma['slow']
+                tq_candlestick['ma_slow.color'] = 0xFF9933CC
 
+                # 最新的快均线数值 > 最新的慢均线数值，且 前一根快均线数值 < 前一根慢均线数值
+                # 即快均线从下向上穿过慢均线
+                if (ma['fast'].iloc[-1] > ma['slow'].iloc[-1] and
+                        ma['fast'].iloc[-2] < ma['slow'].iloc[-2]):
+                    # # 如果有空仓，平空仓
+                    # if tq_position.pos_short > 0:
+                    #     api.insert_order(symbol=symbol,
+                    #                           direction='BUY',
+                    #                           offset='CLOSE',
+                    #                           limit_price=tq_candlestick.close.iloc[-1],
+                    #                           volume=tq_position.pos_short
+                    #                           )
+                    # # 开多仓
+                    # api.insert_order(symbol=symbol,
+                    #                       direction='BUY',
+                    #                       offset='OPEN',
+                    #                       limit_price=tq_candlestick.close.iloc[-1],
+                    #                       volume=max_position
+                    #                       )
+                    tq_target_pos.set_target_volume(max_position)
 
-def double_ma(tq_api: TqApi):
-    """
-    双均线策略
-    注: 该示例策略仅用于功能示范, 实盘时请根据自己的策略/经验进行修改
-    """
-    SHORT = 30  # 短周期
-    LONG = 60  # 长周期
-    SYMBOL = "SHFE.bu2012"  # 合约代码
-
-    print("策略开始运行")
-
-    data_length = LONG + 2  # k线数据长度
-    # "duration_seconds=60"为一分钟线, 日线的duration_seconds参数为: 24*60*60
-    klines = tq_api.get_kline_serial(SYMBOL, duration_seconds=60, data_length=data_length)
-    target_pos = TargetPosTask(tq_api, SYMBOL)
-
-    while True:
-        tq_api.wait_update()
-
-        if tq_api.is_changing(klines.iloc[-1], "datetime"):  # 产生新k线:重新计算SMA
-            short_avg = ma(klines["close"], SHORT)  # 短周期
-            long_avg = ma(klines["close"], LONG)  # 长周期
-
-            # 均线下穿，做空
-            if long_avg.iloc[-2] < short_avg.iloc[-2] and long_avg.iloc[-1] > short_avg.iloc[-1]:
-                target_pos.set_target_volume(-3)
-                print("均线下穿，做空")
-
-            # 均线上穿，做多
-            if short_avg.iloc[-2] < long_avg.iloc[-2] and short_avg.iloc[-1] > long_avg.iloc[-1]:
-                target_pos.set_target_volume(3)
-                print("均线上穿，做多")
+                # 最新的快均线数值 < 最新的慢均线数值，且 前一根快均线数值 > 前一根慢均线数值
+                # 即快均线从上向下穿过慢均线
+                if (ma['fast'].iloc[-1] < ma['slow'].iloc[-1] and
+                        ma['fast'].iloc[-2] > ma['slow'].iloc[-2]):
+                    # # 如果有多仓，平多仓
+                    # if tq_position.pos_short > 0:
+                    #     api.insert_order(symbol=symbol,
+                    #                           direction='SELL',
+                    #                           offset='CLOSE',
+                    #                           limit_price=tq_candlestick.close.iloc[-1],
+                    #                           volume=tq_position.pos_short
+                    #                           )
+                    # # 开空仓
+                    # api.insert_order(symbol=symbol,
+                    #                       direction='SELL',
+                    #                       offset='OPEN',
+                    #                       limit_price=tq_candlestick.close.iloc[-1],
+                    #                       volume=max_position
+                    #                       )
+                    tq_target_pos.set_target_volume(-max_position)
+    except BacktestFinished:
+        api.close()
+        print(f'参数: fast={fast}, slow={slow}, 最终权益={tq_account["balance"]}')

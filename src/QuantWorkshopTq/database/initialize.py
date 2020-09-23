@@ -8,25 +8,11 @@ from datetime import date
 
 from . import (db_session, get_application_path)
 from . import (
-    TQDirection,
-    TQOffset,
     Exchange,
     Holiday,
     Futures,
     Options
 )
-
-
-def init_tq():
-    db_session.add_all([
-        TQDirection(value='BUY', zh='买'),
-        TQDirection(value='SELL', zh='卖'),
-
-        TQOffset(value='OPEN', zh='开'),
-        TQOffset(value='CLOSE', zh='平'),
-        TQOffset(value='CLOSETODAY', zh='平今'),
-    ])
-    db_session.commit()
 
 
 def init_exchange():

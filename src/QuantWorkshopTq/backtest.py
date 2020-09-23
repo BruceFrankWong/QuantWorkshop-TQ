@@ -14,8 +14,7 @@ from datetime import date
 from dotenv import find_dotenv, load_dotenv
 from tqsdk import TqApi, TqBacktest, TqSim
 
-from QuantWorkshopTq.strategy import StrategyBase, PopcornStrategy
-from QuantWorkshopTq.strategy.scalping import scalping
+from QuantWorkshopTq.strategy import scalping
 
 
 if __name__ == '__main__':
@@ -53,4 +52,5 @@ if __name__ == '__main__':
     #
     # # 运行回测
     # backtest_strategy.run()
-    scalping(tq_api)
+
+    scalping(api=tq_api, max_position=30)

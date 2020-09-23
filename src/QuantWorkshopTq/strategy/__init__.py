@@ -2,8 +2,9 @@
 
 __author__ = 'Bruce Frank Wong'
 
+from .utility import get_logger, get_application_path
+from .database import db_session, get_table_order, TQDirection, TQOffset, TQOrder, TQTrade
 
-from .base import StrategyBase
-
-from .moving_average import DoubleMovingAverage
+from .moving_average import double_moving_average
 from .popcorn import PopcornStrategy
+from .scalping import scalping
