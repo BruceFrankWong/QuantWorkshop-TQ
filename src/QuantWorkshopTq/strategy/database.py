@@ -31,60 +31,19 @@ db_metadata = MetaData(bind=db_engine)
 db_inspect = inspect(db_engine)
 
 
-class TQDirection(ModelBase):
-    """
-    天勤量化SDK，下单方向。
-        BUY=买
-        SELL=卖
-    """
-    __tablename__ = 'tq_direction'
-
-    id = Column(Integer, primary_key=True)
-    value = Column(String, nullable=False, unique=True)
-    zh = Column(String, nullable=False, unique=True)
-
-    order_list = relationship('TQOrder', back_populates='direction')
-    trade_list = relationship('TQTrade', back_populates='direction')
-
-    def __repr__(self):
-        return f'<TQDirection(value={self.value}, zh={self.zh})>'
-
-
-class TQOffset(ModelBase):
-    """
-    天勤量化SDK，开平标志。
-        OPEN=开仓
-        CLOSE=平仓
-        CLOSETODAY=平今
-    """
-    __tablename__ = 'tq_offset'
-
-    id = Column(Integer, primary_key=True)
-    value = Column(String, nullable=False, unique=True)
-    zh = Column(String, nullable=False, unique=True)
-
-    order_list = relationship('TQOrder', back_populates='offset')
-    trade_list = relationship('TQTrade', back_populates='offset')
-
-    def __repr__(self):
-        return f'<TQOffset(value={self.value}, zh={self.zh})>'
-
-
 class TQOrder(ModelBase):
     __tablename__ = 'tq_order'
 
     id = Column(Integer, primary_key=True)
     datetime = Column(DateTime, nullable=False)
     order_id = Column(String, nullable=False)
-    direction_id = Column(Integer, ForeignKey('tq_direction.id'), nullable=False)
-    offset_id = Column(Integer, ForeignKey('tq_offset.id'), nullable=False)
+    direction = Column(String, nullable=False)
+    offset = Column(String, nullable=False)
     price = Column(Float, nullable=False)
     volume = Column(Integer, nullable=False)
     status = Column(String, nullable=False)
     opponent = Column(String)
 
-    direction = relationship('TQDirection', back_populates='order_list')
-    offset = relationship('TQOffset', back_populates='order_list')
     trade_list = relationship('TQTrade', back_populates='order')
 
     def __repr__(self):
@@ -100,11 +59,9 @@ class TQTrade(ModelBase):
     exchange_trade_id = Column(String, nullable=False)                      # 交易所成交号
     exchange_id = Column(String, nullable=False)                            # 交易所
     instrument_id = Column(String, nullable=False)                          # 交易所内的合约代码
-    direction_id = Column(Integer, ForeignKey('tq_direction.id'), nullable=False)   # 下单方向
-    offset_id = Column(Integer, ForeignKey('tq_offset.id'), nullable=False)         # 开平标志
+    direction = Column(String, nullable=False)   # 下单方向
+    offset = Column(String, nullable=False)         # 开平标志
 
-    direction = relationship('TQDirection', back_populates='trade_list')
-    offset = relationship('TQOffset', back_populates='trade_list')
     order = relationship('TQOrder', back_populates='trade_list')
 
 
@@ -123,15 +80,6 @@ def initialize_database():
 
     ModelBase.metadata.drop_all(db_engine)
     ModelBase.metadata.create_all(db_engine)
-    db_session.add_all([
-        TQDirection(value='BUY', zh='买'),
-        TQDirection(value='SELL', zh='卖'),
-
-        TQOffset(value='OPEN', zh='开'),
-        TQOffset(value='CLOSE', zh='平'),
-        TQOffset(value='CLOSETODAY', zh='平今'),
-    ])
-    db_session.commit()
 
 
 def get_table_order(strategy_name: str) -> object:

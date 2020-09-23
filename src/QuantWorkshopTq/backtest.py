@@ -14,7 +14,8 @@ from datetime import date
 from dotenv import find_dotenv, load_dotenv
 from tqsdk import TqApi, TqBacktest, TqSim
 
-from QuantWorkshopTq.strategy import scalping
+from QuantWorkshopTq.strategy import StrategyBase, StrategyParameter
+from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
 
 
 if __name__ == '__main__':
@@ -38,19 +39,23 @@ if __name__ == '__main__':
                           web_gui='http://127.0.0.1:8888',
                           auth='%s,%s' % (TQ_ACCOUNT, TQ_PASSWORD))
 
-    # # 回测策略
-    # backtest_strategy: StrategyBase
-    # backtest_strategy = PopcornStrategy(api=tq_api,
-    #                                     capital=backtest_capital,
-    #                                     lots_per_order=3,
-    #                                     lots_per_price=6,
-    #                                     close_fluctuation=1,
-    #                                     closeout=4,
-    #                                     max_fluctuation=5,
-    #                                     safety_rate=0.8
-    #                                     )
-    #
-    # # 运行回测
-    # backtest_strategy.run()
+    # 策略参数
+    parameter: StrategyParameter = strategy_parameter
+    parameter.set_parameters(
+        {
+            'max_position': 30,     # 最大持仓手数
+            'close_spread': 1,      # 平仓价差
+            'order_range': 3,       # 挂单范围
+            'closeout_long': 5,     # 多单强平点差
+            'closeout_short': 5,    # 空单强平点差
+            'volume_per_order': 2,  # 每笔委托手数
+            'volume_per_price': 3   # 每价位手数
+        }
+    )
 
-    scalping(api=tq_api, max_position=30)
+    # 回测策略
+    backtest_strategy: StrategyBase
+    backtest_strategy = Scalping(api=tq_api, settings=parameter)
+
+    # 运行回测
+    backtest_strategy.run()
