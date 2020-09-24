@@ -21,7 +21,7 @@ from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
 if __name__ == '__main__':
     # 自定义变量
     backtest_capital: float = 100000.0
-    backtest_start_date: date = date(2020, 9, 10)
+    backtest_start_date: date = date(2020, 9, 9)
     backtest_end_date: date = date(2020, 9, 10)
 
     # 加载 .env 变量

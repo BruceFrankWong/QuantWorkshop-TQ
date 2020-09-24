@@ -61,12 +61,13 @@ class StrategyBase(object):
     _tz_beijing: timezone
     _tz_settlement: timezone
 
-    _message_trade: str = '{datetime}, 资金: {capital}, 挂单: {lots}手, {D}{O}, {volume}手, 价格：{price}, 委托单号：{order_id}'
-    _message_open_buy: str = '{datetime}, 【下单】买开, 委托单号：{order_id}, {volume}手, 价格：{price}'
-    _message_open_sell: str = '{datetime}, 【下单】卖开, 委托单号：{order_id}, {volume}手, 价格：{price}'
-    _message_close_buy: str = '{datetime}, 【下单】卖平, 委托单号：{order_id}, {volume}手, 价格：{price}'
-    _message_close_sell: str = '{datetime}, 【下单】买平, 委托单号：{order_id}, {volume}手, 价格：{price}'
-    _message_fill: str = '{datetime}, 【成交】成交, 委托单号：{order_id}, {volume}手, 价格：{price}'
+    _local_dt: datetime     # 本机时间
+    _remote_dt: datetime    # 远端时间
+
+    _message_status: str = '{dt}, 【状态】, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}'
+    _message_order: str = '{dt}, 【下单】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}'
+    _message_cancel: str = '{dt}, 【撤单】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}'
+    _message_fill: str = '{dt}, 【成交】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}, 成交编号: {trade_id}'
 
     def __init__(self, api: TqApi, symbol: str, settings: StrategyParameter):
         self._tz_settlement = tz_settlement
@@ -98,7 +99,7 @@ class StrategyBase(object):
         log_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'log')
         if not os.path.exists(log_path):
             os.mkdir(log_path)
-        logger_file = logging.FileHandler(f'{log_path}/Strategy_{self._strategy_name}_{dt}.txt')
+        logger_file = logging.FileHandler(f'{log_path}/Strategy_{self._strategy_name}_{dt}.txt', encoding='utf-8')
         logger_file.setLevel(logging.DEBUG)
         logger_file.setFormatter(formatter)
 
@@ -118,7 +119,7 @@ class StrategyBase(object):
         long: int = self._tq_position.pos_long
         short: int = self._tq_position.pos_short
         lots: int = sum(order.volume_left for order_id, order in self._tq_order.items() if order.status == "ALIVE")
-        self._logger.info(f'【当前状态】时间: {dt}, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}')
+        self._logger.info(f'{dt}, 【状态】, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}')
 
     def load_status(self):
         pass
