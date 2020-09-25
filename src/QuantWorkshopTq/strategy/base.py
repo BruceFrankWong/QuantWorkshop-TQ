@@ -3,7 +3,7 @@
 __author__ = 'Bruce Frank Wong'
 
 
-from typing import Any, Dict, List
+from typing import Any, Optional, Dict, List
 import logging
 import os.path
 from datetime import datetime, date, time, timezone, timedelta
@@ -69,15 +69,16 @@ class StrategyBase(object):
     _message_cancel: str = '{dt}, 【撤单】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}'
     _message_fill: str = '{dt}, 【成交】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}, 成交编号: {trade_id}'
 
-    def __init__(self, api: TqApi, symbol: str, settings: StrategyParameter):
+    def __init__(self, api: TqApi, symbol: str, settings: Optional[StrategyParameter] = None):
         self._tz_settlement = tz_settlement
         self._api = api
         self._logger = self._get_logger()
         self._symbol = symbol
 
         self._settings = {}
-        for k in settings.parameter_name:
-            self._settings[k] = settings.get_parameter(k)
+        if settings:
+            for k in settings.parameter_name:
+                self._settings[k] = settings.get_parameter(k)
 
     @property
     def strategy_name(self) -> str:

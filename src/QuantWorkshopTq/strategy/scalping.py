@@ -66,7 +66,7 @@ class Scalping(StrategyBase):
     price_bid: float
 
     def __init__(self, api: TqApi, settings: StrategyParameter):
-        super(Scalping, self).__init__(api=api, symbol='DCE.c2101', settings=settings)
+        super().__init__(api=api, symbol='DCE.c2101', settings=settings)
 
         self.trading_time: List[Dict[str, datetime.time]] = [
             {
@@ -256,21 +256,76 @@ class Scalping(StrategyBase):
         """
         处理委托单回报。
         根据 Order.status， Order.volume_orign 和 Order.volume_left 判断:
-            1, 成交
-                1A, 全部成交
-                    status = FINISHED, volume_left = 0.
-                1B, 部分成交
-                    status = ALIVE, 0 < volume_left < volume_orign.
-            2, 撤单
-                2A, 全部撤单
-                    status = FINISHED, volume_left = volume_orign.
-                2B, 部分撤单
-                    status = FINISHED, 0 < volume_left < volume_orign.
+            1, status = FINISHED
+                1A, volume_left = volume_orign
+                    全部撤单
+                1B, 0 < volume_left < volume_orign
+                    部分撤单
+                1C, volume_left = 0
+                    全部成交
+            2, status = ALIVE
+                2A, volume_left = volume_orign
+                    报单
+                2B, 0 < volume_left < volume_orign
+                    部分成交
         :param order:
         :return:
         """
         db_order: BacktestOrder
         new_status: str
+
+        if order.status == 'FINISHED':
+            if order.volume_left > 0:
+                if order.volume_left == order.volume_orign:
+                    new_status = '全部撤单'
+                else:
+                    new_status = '全部撤单'
+
+                try:
+                    db_order = db_session.query(BacktestOrder).filter_by(order_id=order.order_id).one()
+                    db_order.status = new_status
+                    db_order.volume_left = order.volume_left
+                    db_session.commit()
+                except NoResultFound:
+                    print('ERROR', order.order_id)
+                    self._api.close()
+                    exit()
+
+                self._logger.info(
+                    self._message_cancel.format(
+                        dt=self._remote_dt,
+                        d='买' if order.direction == 'BUY' else '卖',
+                        o='开' if order.offset == 'OPEN' else '平',
+                        volume=order.volume_left,
+                        price=order.limit_price,
+                        order_id=order.order_id
+                    )
+                )
+            else:
+                new_status = '全部成交'
+        else:
+            if order.volume_left == order.volume_orign:
+                new_status = '报单'
+                try:
+                    db_order = db_session.query(BacktestOrder).filter_by(order_id=order.order_id).one()
+                    if db_order:
+                        raise RuntimeError('新报单不应该在数据库中有记录')
+                except NoResultFound:
+                    db_session.add(
+                        BacktestOrder(
+                            datetime=self._remote_dt,
+                            order_id=order.order_id,
+                            direction=order.direction,
+                            offset=order.offset,
+                            price=order.limit_price,
+                            volume=order.volume_orign,
+                            status='ALIVE'
+                        )
+                    )
+                    db_session.commit()
+
+            else:
+                new_status = '部分成交'
 
         try:
             db_order = db_session.query(BacktestOrder).filter_by(order_id=order.order_id).one()
