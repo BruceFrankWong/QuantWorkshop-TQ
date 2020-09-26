@@ -20,8 +20,9 @@ class Exchange(ModelBase):
     symbol = Column(String, nullable=False, unique=True)
 
     holiday_list = relationship('Holiday', back_populates='exchange')
+    stock_list = relationship('Stock', back_populates='exchange')
     futures_list = relationship('Futures', back_populates='exchange')
-    options_list = relationship('Options', back_populates='exchange')
+    option_list = relationship('Option', back_populates='exchange')
 
     def __repr__(self):
         return f'<Exchange(name={self.name}, fullname={self.fullname}, abbr={self.symbol})>'
@@ -43,9 +44,18 @@ class Holiday(ModelBase):
         return f'<Holiday(name={self.name}, fullname={self.fullname}, abbr={self.symbol})>'
 
 
-class Product(ModelBase):
-    __tablename__ = 'product'
+class Stock(ModelBase):
+    __tablename__ = 'stock'
     id = Column(Integer, primary_key=True)
+    exchange_id = Column(Integer, ForeignKey('exchange.id'), nullable=False)
+    symbol = Column(String, nullable=False, unique=True)
+
+    exchange = relationship('Exchange', back_populates='stock_list')
+
+    def __repr__(self):
+        return f'<Stock(name={self.name},' \
+               f'exchange={db_session.query(Exchange).filter_by(id=self.exchange_id).one().symbol},' \
+               f'symbol={self.symbol})>'
 
 
 class Futures(ModelBase):
@@ -78,15 +88,15 @@ class Futures(ModelBase):
                f'symbol={self.symbol})>'
 
 
-class Options(ModelBase):
-    __tablename__ = 'options'
+class Option(ModelBase):
+    __tablename__ = 'option'
 
     id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False, unique=True)
     symbol = Column(String, nullable=False, unique=True)
     exchange_id = Column(Integer, ForeignKey('exchange.id'), nullable=False)
 
-    exchange = relationship('Exchange', back_populates='options_list')
+    exchange = relationship('Exchange', back_populates='option_list')
 
     @property
     def symbol_call(self) -> str:
@@ -97,7 +107,7 @@ class Options(ModelBase):
         return f'{self.symbol}'
 
     def __repr__(self):
-        return f'<Options(name={self.name},' \
+        return f'<Option(name={self.name},' \
                f'exchange={db_session.query(Exchange).filter_by(id=self.exchange_id).one().symbol},' \
                f'symbol={self.symbol})>'
 
@@ -134,8 +144,8 @@ class FuturesContractQuote(ModelBase):
     contract = relationship('FuturesContract', back_populates='quote_list')
 
 
-class Balance(ModelBase):
-    __tablename__ = 'balance'
+class MainContract(ModelBase):
+    __tablename__ = 'main_contract'
 
     id = Column(Integer, primary_key=True)
     datetime = Column(DateTime, nullable=False)

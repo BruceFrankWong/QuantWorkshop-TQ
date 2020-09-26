@@ -11,7 +11,7 @@ from . import (
     Exchange,
     Holiday,
     Futures,
-    Options
+    Option
 )
 
 
@@ -40,7 +40,7 @@ def init_holiday():
     db_session.commit()
 
 
-def init_options():
+def init_option():
     csv_path: str
 
     csv_path = os.path.join(get_application_path(), 'database', 'csv', 'options.csv')
@@ -49,10 +49,10 @@ def init_options():
         for row in reader:
             print(row['name'], row['symbol'], row['exchange'])
             print(get_exchange_id(row['exchange']))
-            db_session.add(Options(name=row['name'],
-                                   symbol=row['symbol'],
-                                   exchange_id=get_exchange_id(row['exchange'])
-                                   )
+            db_session.add(Option(name=row['name'],
+                                  symbol=row['symbol'],
+                                  exchange_id=get_exchange_id(row['exchange'])
+                                  )
                            )
     db_session.commit()
 

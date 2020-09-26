@@ -25,15 +25,11 @@ event.listen(db_engine, 'connect', _fk_pragma_on_connect)
 
 
 from .model import (
-    TQDirection,
-    TQOffset,
-    TQOrder,
-    TQTrade,
     Exchange,
     Holiday,
-    Product,
+    Stock,
     Futures,
-    Options
+    Option
 )
 
 from .utility import (
@@ -49,6 +45,5 @@ from .utility import (
 from .initialize import (
     init_exchange,
     init_futures,
-    init_options,
-    init_tq
+    init_option,
 )

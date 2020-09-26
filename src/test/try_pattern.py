@@ -14,8 +14,8 @@ from QuantWorkshopTq.strategy.pattern import CandlestickPattern
 if __name__ == '__main__':
     # 自定义变量
     backtest_capital: float = 100000.0
-    backtest_start_date: date = date(2020, 9, 9)
-    backtest_end_date: date = date(2020, 9, 9)
+    backtest_start_date: date = date(2020, 9, 25)
+    backtest_end_date: date = date(2020, 9, 25)
 
     # 加载 .env 变量
     load_dotenv(find_dotenv())
