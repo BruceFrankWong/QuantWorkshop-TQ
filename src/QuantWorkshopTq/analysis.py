@@ -104,6 +104,10 @@ def do_analysis(csv_path: str):
     #     data[date] = pd.
 
 
+def do_analysis_on_daily():
+    pass
+
+
 def minute_to_section(symbol: str):
     columns: List[str] = ['date', 'section', 'open', 'high', 'low', 'close', 'volume', 'open_oi', 'close_oi']
     source: pd.DataFrame = pd.read_csv(os.path.join(f'{get_application_path()}', f'KQ.m@{symbol}_minute.csv'))
@@ -113,6 +117,22 @@ def minute_to_section(symbol: str):
     source.drop(columns=['datetime'], inplace=True)
     source.rename(columns={'dt': 'datetime'}, inplace=True)
     print(source['datetime'].dtypes)
+
+
+def merge():
+    pass
+
+
+def merge_as_section():
+    pass
+
+
+def merge_as_15_minutes():
+    pass
+
+
+def handle_csv_header():
+    pass
 
 
 if __name__ == '__main__':

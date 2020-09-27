@@ -2,6 +2,14 @@
 
 __author__ = 'Bruce Frank Wong'
 
+
+"""
+本策略是所谓“刮头皮”策略。
+
+
+"""
+
+
 from typing import Dict, List, Optional
 import time
 import datetime
@@ -506,30 +514,30 @@ class Scalping(StrategyBase):
                             lots_at_price(self.tq_order, self.price_ask) + lots_at_price(self.tq_order,
                                                                                self.price_bid) + self._settings['volume_per_order'] <
                             self._settings['volume_per_price']):
-                        order_open_buy = self._api.insert_order(symbol=self._symbol,
-                                                                direction='BUY',
-                                                                offset='OPEN',
-                                                                volume=self._settings['volume_per_order'],
-                                                                limit_price=self.price_bid
-                                                                )
+                        order_open = self._api.insert_order(symbol=self._symbol,
+                                                            direction='BUY',
+                                                            offset='OPEN',
+                                                            volume=self._settings['volume_per_order'],
+                                                            limit_price=self.price_bid
+                                                            )
                         self._logger.info(
                             self._message_order.format(
                                 dt=self._remote_dt,
-                                d='买' if order_open_buy.direction == 'BUY' else '卖',
-                                o='开' if order_open_buy.offset == 'OPEN' else '平',
-                                volume=order_open_buy.volume_orign,
-                                price=order_open_buy.limit_price,
-                                order_id=order_open_buy.order_id
+                                d='买' if order_open.direction == 'BUY' else '卖',
+                                o='开' if order_open.offset == 'OPEN' else '平',
+                                volume=order_open.volume_orign,
+                                price=order_open.limit_price,
+                                order_id=order_open.order_id
                             )
                         )
                         db_session.add(
                             BacktestOrder(
                                 datetime=self._remote_dt,
-                                order_id=order_open_buy.order_id,
+                                order_id=order_open.order_id,
                                 direction='BUY',
                                 offset='OPEN',
-                                price=order_open_buy.limit_price,
-                                volume=order_open_buy.volume_orign,
+                                price=order_open.limit_price,
+                                volume=order_open.volume_orign,
                                 status='ALIVE'
                             )
                         )
