@@ -32,7 +32,7 @@ class CandlestickPattern(StrategyBase):
     1、三角形
     2、突破回踩
     """
-    _strategy_name: str = 'Pattern'
+    strategy_name: str = 'Pattern'
 
     candlestick: pd.DataFrame
     data: pd.DataFrame
@@ -49,7 +49,7 @@ class CandlestickPattern(StrategyBase):
         super().__init__(api=api, symbol=symbol)
         self.period = 30
         self.trend_turing_point = {}
-        self.candlestick = self._api.get_kline_serial(self._symbol, duration_seconds=60, data_length=600)
+        self.candlestick = self.api.get_kline_serial(self.symbol, duration_seconds=60, data_length=600)
 
     def draw(self):
         intraday: pd.DataFrame
@@ -175,14 +175,14 @@ class CandlestickPattern(StrategyBase):
     def run(self):
         try:
             while True:
-                if not self._api.wait_update(deadline=time.time() + self._timeout):
+                if not self.api.wait_update(deadline=time.time() + self._timeout):
                     print('未在超时限制内接收到数据。')
 
-                if self._api.is_changing(self.candlestick.iloc[-1], 'datetime'):
+                if self.api.is_changing(self.candlestick.iloc[-1], 'datetime'):
                     # candlestick columns
                     # 'datetime', 'id', 'open', 'high', 'low', 'close', 'volume', 'open_oi', 'close_oi',
                     #       'symbol', 'duration'
-                    self._logger.info(time_to_datetime(self.candlestick.iloc[-1]['datetime']))
+                    self.logger.info(time_to_datetime(self.candlestick.iloc[-1]['datetime']))
                     self.data = self.candlestick.loc[:, ['datetime', 'high', 'low']].iloc[-self.period:]
                     # self.triangle(self.data)
 
@@ -193,5 +193,5 @@ class CandlestickPattern(StrategyBase):
             print('=' * 20)
             self.draw()
 
-            self._api.close()
+            self.api.close()
             exit()

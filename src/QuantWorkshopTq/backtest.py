@@ -15,7 +15,8 @@ from dotenv import find_dotenv, load_dotenv
 from tqsdk import TqApi, TqBacktest, TqSim
 
 from QuantWorkshopTq.strategy import StrategyBase, StrategyParameter
-from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
+# from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
+from QuantWorkshopTq.strategy.test import TestStrategy, strategy_parameter
 
 
 if __name__ == '__main__':
@@ -55,7 +56,7 @@ if __name__ == '__main__':
 
     # 回测策略
     backtest_strategy: StrategyBase
-    backtest_strategy = Scalping(api=tq_api, settings=parameter)
+    backtest_strategy = TestStrategy(api=tq_api, settings=parameter)
 
     # 运行回测
     backtest_strategy.run()

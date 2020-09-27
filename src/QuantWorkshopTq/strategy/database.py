@@ -35,7 +35,8 @@ class BacktestOrder(ModelBase):
     __tablename__ = 'backtest_order'
 
     id = Column(Integer, primary_key=True)
-    datetime = Column(DateTime, nullable=False)
+    insert_datetime = Column(DateTime, nullable=False)
+    last_datetime = Column(DateTime)
     order_id = Column(String, nullable=False)
     direction = Column(String, nullable=False)
     offset = Column(String, nullable=False)
@@ -55,7 +56,8 @@ class BacktestTrade(ModelBase):
     __tablename__ = 'backtest_trade'
 
     id = Column(Integer, primary_key=True)
-    order_id = Column(Integer, ForeignKey('backtest_order.id'), nullable=False)   # 委托单ID
+    backtest_order_id = Column(Integer, ForeignKey('backtest_order.id'), nullable=False)
+    order_id = Column(String, nullable=False)   # 委托单ID
     trade_id = Column(String, nullable=False)                               # 成交ID
     exchange_trade_id = Column(String, nullable=False)                      # 交易所成交号
     exchange_id = Column(String, nullable=False)                            # 交易所

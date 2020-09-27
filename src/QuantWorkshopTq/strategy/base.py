@@ -9,6 +9,10 @@ import os.path
 from datetime import datetime, date, time, timezone, timedelta
 
 from tqsdk import TqApi
+from tqsdk.objs import Account, Position, Quote, Order
+from tqsdk.entity import Entity
+from tqsdk.tafunc import time_to_datetime
+from pandas import DataFrame
 
 from QuantWorkshopTq.define import tz_beijing, tz_settlement
 
@@ -50,42 +54,46 @@ class StrategyParameter(object):
 
 
 class StrategyBase(object):
-    _strategy_name: str = 'Unnamed Strategy'
-    _api: TqApi
-    _logger: logging.Logger
+    strategy_name: str = 'Unnamed Strategy'
+    api: TqApi
+    logger: logging.Logger
 
-    _symbol: str
-    _settings: dict
-    _timeout: int = 5
+    symbol: str
+    settings: dict
+    timeout: int = 5
 
     _tz_beijing: timezone
     _tz_settlement: timezone
 
-    _local_dt: datetime     # 本机时间
-    _remote_dt: datetime    # 远端时间
+    local_datetime: datetime     # 本机时间
+    remote_datetime: datetime    # 远端时间
 
-    _message_status: str = '{dt}, 【状态】, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}'
-    _message_order: str = '{dt}, 【下单】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}'
-    _message_cancel: str = '{dt}, 【撤单】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}'
-    _message_fill: str = '{dt}, 【成交】, {d}{o}, {volume}手 @{price}, 委托单号：{order_id}, 成交编号: {trade_id}'
+    tq_account: Account
+    tq_position: Position
+    tq_tick: DataFrame
+    tq_quote: Quote
+    tq_order: Entity
 
     def __init__(self, api: TqApi, symbol: str, settings: Optional[StrategyParameter] = None):
         self._tz_settlement = tz_settlement
-        self._api = api
-        self._logger = self._get_logger()
-        self._symbol = symbol
+        self.api = api
+        self.logger = self._get_logger()
+        self.symbol = symbol
 
         self._settings = {}
         if settings:
             for k in settings.parameter_name:
                 self._settings[k] = settings.get_parameter(k)
 
-    @property
-    def strategy_name(self) -> str:
-        return self._strategy_name
+        # 天勤数据
+        self.tq_account = self.api.get_account()
+        self.tq_position = self.api.get_position(self.symbol)
+        self.tq_tick = self.api.get_tick_serial(self.symbol)
+        self.tq_quote = self.api.get_quote(self.symbol)
+        self.tq_order = self.api.get_order()
 
     def _get_logger(self) -> logging.Logger:
-        logger = logging.getLogger(f'Strategy-{self._strategy_name}')
+        logger = logging.getLogger(f'Strategy-{self.strategy_name}')
 
         logger.setLevel(logging.DEBUG)
         # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s: - %(message)s',
@@ -100,7 +108,7 @@ class StrategyBase(object):
         log_path: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'log')
         if not os.path.exists(log_path):
             os.mkdir(log_path)
-        logger_file = logging.FileHandler(f'{log_path}/Strategy_{self._strategy_name}_{dt}.txt', encoding='utf-8')
+        logger_file = logging.FileHandler(f'{log_path}/Strategy_{self.strategy_name}_{dt}.txt', encoding='utf-8')
         logger_file.setLevel(logging.DEBUG)
         logger_file.setFormatter(formatter)
 
@@ -115,12 +123,48 @@ class StrategyBase(object):
 
         return logger
 
-    def log_status(self, dt: datetime) -> None:
-        cash: float = self._tq_account.available
-        long: int = self._tq_position.pos_long
-        short: int = self._tq_position.pos_short
-        lots: int = sum(order.volume_left for order_id, order in self._tq_order.items() if order.status == "ALIVE")
-        self._logger.info(f'{dt}, 【状态】, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}')
+    def log_status(self) -> None:
+        cash: float = self.tq_account.available
+        long: int = self.tq_position.pos_long
+        short: int = self.tq_position.pos_short
+        lots: int = sum(order.volume_left for _, order in self.tq_order.items() if order.status == 'ALIVE')
+        self.logger.info(f'{self.remote_datetime}, 【状态】, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}')
+
+    def log_order(self, order: Order) -> None:
+        self.logger.info(f'{self.remote_datetime}, 【下单】, '
+                         f'{"买" if order.direction == "BUY" else "卖"}'
+                         f'{"开" if order.offset == "OPEN" else ("平" if order.offset == "CLOSE" else "平今")}, '
+                         f'{order.volume_orign}手 @{order.limit_price}, '
+                         f'委托时间: {time_to_datetime(order.insert_date_time)}, '
+                         f'委托单号：{order.order_id}')
+
+    def log_cancel(self, order: Order) -> None:
+        self.logger.info(f'{self.remote_datetime}, 【撤单】, '
+                         f'{"买" if order.direction == "BUY" else "卖"}'
+                         f'{"开" if order.offset == "OPEN" else ("平" if order.offset == "CLOSE" else "平今")}, '
+                         f'撤销{order.volume_left}手 @{order.limit_price}, '
+                         f'委托时间: {time_to_datetime(order.insert_date_time)}, '
+                         f'委托单号：{order.order_id}')
+
+    def log_fill(self, order: Order, trade_id: str) -> None:
+        self.logger.info(f'{self.remote_datetime}, 【成交】, '
+                         f'{"买" if order.direction == "BUY" else "卖"}'
+                         f'{"开" if order.offset == "OPEN" else ("平" if order.offset == "CLOSE" else "平今")}, '
+                         f'成交{order.volume_orign-order.volume_left}手 @{order.limit_price}, '
+                         f'委托时间: {time_to_datetime(order.insert_date_time)}, '
+                         f'委托单号：{order.order_id}, '
+                         f'成交编号: {trade_id}')
+
+    def log_accept(self, order: Order) -> None:
+        self.logger.info(f'{self.remote_datetime}, 【报单】, '
+                         f'委托时间: {time_to_datetime(order.insert_date_time)}, '
+                         f'委托单号：{order.order_id}')
+
+    def is_open_condition(self) -> bool:
+        pass
+
+    def is_close_condition(self) -> bool:
+        pass
 
     def load_status(self):
         pass

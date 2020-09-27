@@ -92,10 +92,10 @@ class Scalping(StrategyBase):
         ]
 
         # 天勤数据
-        self.tq_account = self._api.get_account()
-        self.tq_position = self._api.get_position(self._symbol)
-        self.tq_quote = self._api.get_quote(self._symbol)
-        self.tq_order = self._api.get_order()
+        self.tq_account = self.api.get_account()
+        self.tq_position = self.api.get_position(self.symbol)
+        self.tq_quote = self.api.get_quote(self.symbol)
+        self.tq_order = self.api.get_order()
 
         self.price_ask = 0.0
         self.price_bid = 0.0
@@ -134,15 +134,15 @@ class Scalping(StrategyBase):
             new_action = '买平'
 
         # 下平仓单
-        order_close = self._api.insert_order(
-            symbol=self._symbol,
+        order_close = self.api.insert_order(
+            symbol=self.symbol,
             direction=new_direction,
             offset='CLOSE',
             volume=order.volume_orign,
             limit_price=new_price
         )
         # log提示
-        self._logger.info(
+        self.logger.info(
             self._message_order.format(
                 dt=datetime.datetime.now(),
                 d='买' if order_close.direction == 'BUY' else '卖',
@@ -209,15 +209,15 @@ class Scalping(StrategyBase):
         order: Order
         # 撤单
         for order in self.get_unfilled_order():
-            self._api.cancel_order(order.order_id)
+            self.api.cancel_order(order.order_id)
             db_order = db_session.query(BacktestOrder).filter_by(order_id=order.order_id).one()
             db_order.status = '撤单'
         db_session.commit()
 
         if self.tq_position.pos_long > 0:
             # 在 买一价 上 卖平。
-            order = self._api.insert_order(
-                symbol=self._symbol,
+            order = self.api.insert_order(
+                symbol=self.symbol,
                 direction='SELL',
                 offset='CLOSE',
                 volume=self.tq_position.pos_long,
@@ -239,8 +239,8 @@ class Scalping(StrategyBase):
 
         if self.tq_position.pos_short > 0:
             # 在 卖一价 上 买平。
-            order = self._api.insert_order(
-                symbol=self._symbol,
+            order = self.api.insert_order(
+                symbol=self.symbol,
                 direction='BUY',
                 offset='CLOSE',
                 volume=self.tq_position.pos_short,
@@ -296,10 +296,10 @@ class Scalping(StrategyBase):
                     db_session.commit()
                 except NoResultFound:
                     print('ERROR', order.order_id)
-                    self._api.close()
+                    self.api.close()
                     exit()
 
-                self._logger.info(
+                self.logger.info(
                     self._message_cancel.format(
                         dt=self._remote_dt,
                         d='买' if order.direction == 'BUY' else '卖',
@@ -352,7 +352,7 @@ class Scalping(StrategyBase):
                 db_order.status = new_status
                 db_order.volume_left = order.volume_left
                 db_session.commit()
-                self._logger.info(
+                self.logger.info(
                     self._message_cancel.format(
                         dt=self._remote_dt,
                         d='买' if order.direction == 'BUY' else '卖',
@@ -365,7 +365,7 @@ class Scalping(StrategyBase):
 
             # 全部成交
             elif order.status == 'FINISHED' and order.volume_left == 0:
-                self._logger.info(
+                self.logger.info(
                     self._message_fill.format(
                         dt=self._remote_dt,
                         o='买' if order.direction == 'BUY' else '卖',
@@ -383,7 +383,7 @@ class Scalping(StrategyBase):
                     db_order.status = 'FINISHED'
                     db_session.commit()
 
-                    self._logger.info('【反馈】仓位平了。')
+                    self.logger.info('【反馈】仓位平了。')
 
             # 部分成交
             elif order.status == 'ALIVE' and 0 < order.volume_left < order.volume_orign:
@@ -421,7 +421,7 @@ class Scalping(StrategyBase):
                                 )
                             )
                 if order.status == 'FINISHED':
-                    self._logger.info(
+                    self.logger.info(
                         self._message_fill.format(
                             dt=self._remote_dt,
                             o='买' if order.direction == 'BUY' else '卖',
@@ -445,7 +445,7 @@ class Scalping(StrategyBase):
                             self._logger.info('【反馈】仓位平了。')
                     except NoResultFound:
                         print('ERROR', order.order_id)
-                        self._api.close()
+                        self.api.close()
                         exit()
                 else:
                     self._logger.info(f'委托单编号: {order.order_id}, 状态: {order.status}, {order.last_msg}')
@@ -456,7 +456,7 @@ class Scalping(StrategyBase):
 
         except NoResultFound:
             print('ERROR', order.order_id)
-            self._api.close()
+            self.api.close()
             exit()
 
     def run(self):
@@ -470,10 +470,10 @@ class Scalping(StrategyBase):
 
         try:
             while True:
-                if not self._api.wait_update(deadline=time.time() + self._timeout):
+                if not self.api.wait_update(deadline=time.time() + self._timeout):
                     print('未在超时限制内接收到数据。')
 
-                if self._api.is_changing(self.tq_quote, ['ask_price1', 'bid_price1']):
+                if self.api.is_changing(self.tq_quote, ['ask_price1', 'bid_price1']):
                     # tq_quote 中的信息
                     self.price_ask = self.tq_quote.ask_price1  # 当前卖一价
                     self.price_bid = self.tq_quote.bid_price1  # 当前买一价
@@ -481,11 +481,11 @@ class Scalping(StrategyBase):
 
                     # 非交易时间
                     if not self.is_trading_time(self._remote_dt):
-                        self._logger.info(f'{self._remote_dt}, 【状态】, ——非交易时间')
+                        self.logger.info(f'{self._remote_dt}, 【状态】, ——非交易时间')
                         continue
 
                     # log 当前状态
-                    self._logger.info(
+                    self.logger.info(
                         self._message_status.format(
                             dt=self._remote_dt,
                             cash=self.tq_account.available,
@@ -502,7 +502,7 @@ class Scalping(StrategyBase):
                         self.close_before_market_close()
 
                     # 处理委托单回报
-                    if self._api.is_changing(self.tq_order):
+                    if self.api.is_changing(self.tq_order):
                         for remote_order_id, remote_order in self.tq_order.items():
                             self.handle_orders(remote_order)
 
@@ -514,13 +514,13 @@ class Scalping(StrategyBase):
                             lots_at_price(self.tq_order, self.price_ask) + lots_at_price(self.tq_order,
                                                                                self.price_bid) + self._settings['volume_per_order'] <
                             self._settings['volume_per_price']):
-                        order_open = self._api.insert_order(symbol=self._symbol,
+                        order_open = self.api.insert_order(symbol=self.symbol,
                                                             direction='BUY',
                                                             offset='OPEN',
                                                             volume=self._settings['volume_per_order'],
                                                             limit_price=self.price_bid
                                                             )
-                        self._logger.info(
+                        self.logger.info(
                             self._message_order.format(
                                 dt=self._remote_dt,
                                 d='买' if order_open.direction == 'BUY' else '卖',
@@ -544,5 +544,5 @@ class Scalping(StrategyBase):
                         db_session.commit()
 
         except BacktestFinished:
-            self._api.close()
+            self.api.close()
             exit()
