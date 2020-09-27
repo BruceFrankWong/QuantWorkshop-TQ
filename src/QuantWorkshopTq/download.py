@@ -8,7 +8,10 @@ __author__ = 'Bruce Frank Wong'
 本模块负责下载数据。
 """
 
-import os
+
+from typing import List
+import csv
+import os.path
 from datetime import datetime, date, timedelta
 from contextlib import closing
 
@@ -16,7 +19,7 @@ from dotenv import find_dotenv, load_dotenv
 from tqsdk import TqApi, TqAuth
 from tqsdk.tools import DataDownloader
 
-from QuantWorkshopTq.strategy import StrategyBase, StrategyParameter
+from QuantWorkshopTq.utility import get_application_path
 from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
 
 tick: int = 0
@@ -51,29 +54,18 @@ if __name__ == '__main__':
     tq_api: TqApi = TqApi(auth=TqAuth(TQ_ACCOUNT, TQ_PASSWORD))
 
     # 下载需求
-    download_request_list: list = [
-        {
-            'symbol': 'KQ.m@SHFE.au',
-            'listing': date(2016, 1, 1),
-            'expiration': date(2021, 1, 15),
-            'period': day
-        },
-        {
-            'symbol': 'KQ.m@SHFE.au',
-            'listing': date(2016, 1, 1),
-            'expiration': date(2021, 1, 15),
-            'period': minute
-        },
-    ]
-
-    # # 下载任务
-    # download_tasks: dict = {'AG2012': DataDownloader(tq_api,
-    #                                                  symbol_list='SHFE.ag2012',
-    #                                                  dur_sec=0,
-    #                                                  start_dt=date(2019, 12, 17),
-    #                                                  end_dt=date(2020, 9, 25),
-    #                                                  csv_file_name='T1809_tick.csv')
-    #                         }
+    download_request_list: List[dict] = []
+    csv_path: str = os.path.join(get_application_path(), 'download.csv')
+    with open(csv_path, newline='', encoding='utf-8') as csv_file:
+        reader = csv.DictReader(csv_file)
+        for row in reader:
+            download_request: dict = {
+                'symbol': row['symbol'],
+                'start': date(int(row['start'][:4]), int(row['start'][4:6]), int(row['start'][6:8])),
+                'end': date(int(row['end'][:4]), int(row['end'][4:6]), int(row['end'][6:8])),
+                'period': int(row['period']),
+            }
+            download_request_list.append(download_request)
 
     # 运行下载
     task_name: str
@@ -86,8 +78,8 @@ if __name__ == '__main__':
                 tq_api,
                 symbol_list=request['symbol'],
                 dur_sec=request['period'],
-                start_dt=request['listing'],
-                end_dt=request['expiration'] if today > request['expiration'] else today - timedelta(days=1),
+                start_dt=request['start'],
+                end_dt=request['end'] if today > request['end'] else today - timedelta(days=1),
                 csv_file_name=f'{request["symbol"]}_{period(request["period"])}.csv'
             )
             while not task.is_finished():
