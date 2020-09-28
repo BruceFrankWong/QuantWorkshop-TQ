@@ -68,6 +68,9 @@ class StrategyBase(object):
     local_datetime: datetime     # 本机时间
     remote_datetime: datetime    # 远端时间
 
+    price_ask: float = 0.0      # 卖一价
+    price_bid: float = 0.0      # 买一价
+
     tq_account: Account
     tq_position: Position
     tq_tick: DataFrame
@@ -128,7 +131,9 @@ class StrategyBase(object):
         long: int = self.tq_position.pos_long
         short: int = self.tq_position.pos_short
         lots: int = sum(order.volume_left for _, order in self.tq_order.items() if order.status == 'ALIVE')
-        self.logger.info(f'{self.remote_datetime}, 【状态】, 可用资金: {cash:,.2f}, 持多: {long}, 持空: {short}, 未成交: {lots}')
+        self.logger.info(f'{self.remote_datetime}, 【状态】, 可用资金: {cash:,.2f}, '
+                         f'持多: {long}, 持空: {short}, 未成交: {lots}, '
+                         f'当前买一价: {self.price_bid}, 当前卖一价: {self.price_ask}')
 
     def log_order(self, order: Order) -> None:
         self.logger.info(f'{self.remote_datetime}, 【下单】, '
@@ -159,6 +164,9 @@ class StrategyBase(object):
         self.logger.info(f'{self.remote_datetime}, 【报单】, '
                          f'委托时间: {time_to_datetime(order.insert_date_time)}, '
                          f'委托单号：{order.order_id}')
+
+    def log_no_data(self) -> None:
+        self.logger.info(f'{self.remote_datetime}, 未在 timeout 时间内收到数据。')
 
     def is_open_condition(self) -> bool:
         pass

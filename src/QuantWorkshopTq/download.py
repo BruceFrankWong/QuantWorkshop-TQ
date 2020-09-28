@@ -33,11 +33,11 @@ def period(n: int) -> str:
     if n == 0:
         return 'tick'
     elif n == 86400 or n % 86400 == 0:
-        return 'day' if n == 86400 else f'{n % 86400}day'
+        return 'day' if n == 86400 else f'{n // 86400}day'
     elif n == 3600 or n % 3600 == 0:
-        return 'hour' if n == 3600 else f'{n % 3600}hour'
+        return 'hour' if n == 3600 else f'{n // 3600}hour'
     elif n == 60 or n % 60 == 0:
-        return 'minute' if n == 60 else f'{n % 60}minute'
+        return 'minute' if n == 60 else f'{n // 60}minute'
     else:
         return 'second' if n == 1 else f'{n}second'
 
@@ -70,18 +70,27 @@ if __name__ == '__main__':
     # 运行下载
     task_name: str
     task: DataDownloader
+    filename: str
     today: date = date.today()
     with closing(tq_api):
         for request in download_request_list:
             task_name = request['symbol']
+            file_name = f'{request["symbol"]}_{period(request["period"])}.csv'
             task = DataDownloader(
                 tq_api,
                 symbol_list=request['symbol'],
                 dur_sec=request['period'],
                 start_dt=request['start'],
                 end_dt=request['end'] if today > request['end'] else today - timedelta(days=1),
-                csv_file_name=f'{request["symbol"]}_{period(request["period"])}.csv'
+                csv_file_name=file_name
             )
+
             while not task.is_finished():
                 tq_api.wait_update()
                 print(f'正在下载 [{task_name}] 的 {period(request["period"])} 数据，已完成： {task.get_progress():,.3f}%。')
+
+            if task.is_finished():
+                with open(file_name, 'w') as f:
+                    line = f.readline()
+
+

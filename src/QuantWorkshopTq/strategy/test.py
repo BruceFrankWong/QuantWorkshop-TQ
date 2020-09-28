@@ -4,7 +4,7 @@ __author__ = 'Bruce Frank Wong'
 
 
 """
-本策略是用来验证是否可以仅靠 <tqsdk.objs.Order> 处理委托单。
+本策略是用来验证是否可以仅靠 <tqsdk.api.get_order> 处理委托单。
 """
 
 
