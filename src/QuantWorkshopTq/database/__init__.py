@@ -3,15 +3,19 @@
 __author__ = 'Bruce Frank Wong'
 
 
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, event, MetaData, inspect
+from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import Engine
 
 from QuantWorkshopTq.utility import get_application_path
 
 
-def _fk_pragma_on_connect(dbapi_con, con_record):
-    dbapi_con.execute('pragma foreign_keys=ON')
+@event.listens_for(Engine, 'connect')
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute('PRAGMA foreign_keys=ON')
+    cursor.close()
 
 
 ModelBase = declarative_base()

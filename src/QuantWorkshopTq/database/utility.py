@@ -2,6 +2,7 @@
 
 __author__ = 'Bruce Frank Wong'
 
+
 from typing import Union
 import csv
 import os.path

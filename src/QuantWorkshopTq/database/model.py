@@ -2,6 +2,7 @@
 
 __author__ = 'Bruce Frank Wong'
 
+
 from typing import Dict, List
 
 from sqlalchemy.orm import relationship

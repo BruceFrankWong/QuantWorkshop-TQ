@@ -175,7 +175,7 @@ class CandlestickPattern(StrategyBase):
     def run(self):
         try:
             while True:
-                if not self.api.wait_update(deadline=time.time() + self._timeout):
+                if not self.api.wait_update(deadline=time.time() + self.timeout):
                     print('未在超时限制内接收到数据。')
 
                 if self.api.is_changing(self.candlestick.iloc[-1], 'datetime'):
