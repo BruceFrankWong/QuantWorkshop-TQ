@@ -134,6 +134,10 @@ dmypy.json
 .idea/vcs.xml
 .idea/jsLibraryMappings.xml
 
+# Data downloaded
+data_downloaded/
+data_downloaded/*
+
 # Log file
 log/
 log/*
