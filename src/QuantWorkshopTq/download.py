@@ -16,11 +16,12 @@ from datetime import datetime, date, timedelta
 from contextlib import closing
 
 from dotenv import find_dotenv, load_dotenv
+import pandas as pd
 from tqsdk import TqApi, TqAuth
 from tqsdk.tools import DataDownloader
 
 from QuantWorkshopTq.utility import get_application_path
-from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
+
 
 tick: int = 0
 second: int = 1
@@ -75,6 +76,12 @@ if __name__ == '__main__':
     task: DataDownloader
     filename: str
     today: date = date.today()
+    df: pd.DataFrame
+    quote_column_list: List[str] = ['open', 'high', 'low', 'close', 'volume', 'open_oi', 'close_oi']
+    tick_column_list: List[str] = ['last_price', 'highest', 'lowest',
+                                   'bid_price1', 'bid_volume1', 'ask_price1', 'ask_volume1',
+                                   'volume', 'amount', 'open_interest']
+    column_list: List[str]
     with closing(tq_api):
         for request in download_request_list:
             task_name = request['symbol']
@@ -94,8 +101,17 @@ if __name__ == '__main__':
                 tq_api.wait_update()
                 print(f'正在下载 [{task_name}] 的 {period(request["period"])} 数据，已完成： {task.get_progress():,.3f}%。')
 
+            # 处理下载好的 csv 文件的 header, 也就是 pandas.DataFrame 的 column.
             if task.is_finished():
-                with open(file_name, 'w') as f:
-                    line = f.readline()
+                df = pd.read_csv(file_name)
+                if period(request['period']) == 'tick':
+                    column_list = tick_column_list
+                else:
+                    column_list = quote_column_list
+                for column in column_list:
+                    column_x = ''.join([request['symbol'], '.', column])
+                    if column_x in df.columns:
+                        df.rename(columns={column_x: column}, inplace=True)
+                df.to_csv(file_name, index=False)
 
 
