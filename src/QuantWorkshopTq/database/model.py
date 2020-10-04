@@ -4,9 +4,9 @@ __author__ = 'Bruce Frank Wong'
 
 
 from typing import Dict, List
+from datetime import date
 
 from sqlalchemy.orm import relationship
-
 from sqlalchemy import Column, ForeignKey, String, Integer, Float, Date, DateTime
 
 from . import ModelBase, db_session
@@ -24,6 +24,22 @@ class Exchange(ModelBase):
     stock_list = relationship('Stock', back_populates='exchange')
     futures_list = relationship('Futures', back_populates='exchange')
     option_list = relationship('Option', back_populates='exchange')
+
+    def is_trading_day(self, day: date) -> bool:
+        if 6 <= day.isoweekday() <= 7:
+            return False
+        for holiday in self.get_holiday_by_year(day.year):
+            if holiday.begin <= day <= holiday.end:
+                return False
+        return False
+
+    def get_holiday_by_year(self, year: int) -> list:
+        if year <= 2000 or year > date.today().year:
+            raise ValueError('Parameter <year> should be in [2001, Current Year]')
+        return db_session.query(Holiday).filter(Holiday.exchange_id == self.id,
+                                                Holiday.begin >= date(year, 1, 1),
+                                                Holiday.begin <= date(year+1, 1, 1)
+                                                ).all()
 
     def __repr__(self):
         return f'<Exchange(name={self.name}, fullname={self.fullname}, abbr={self.symbol})>'
@@ -74,10 +90,17 @@ class Futures(ModelBase):
 
     exchange = relationship('Exchange', back_populates='futures_list')
     contract_list = relationship('FuturesContract', back_populates='futures')
+    main_contract_list = relationship('FuturesMainContract', back_populates='futures')
 
     @property
-    def contract(self) -> str:
-        return f'{self.symbol}'
+    def trading_contracts(self) -> List[str]:
+        return self.trading_contracts_at(date.today())
+
+    def trading_contracts_at(self, day: date) -> List[str]:
+        return db_session.query(FuturesContract).filter(FuturesContract.futures_id == self.id,
+                                                        FuturesContract.listed_date >= day,
+                                                        FuturesContract.expiration_date <= day
+                                                        ).all()
 
     @property
     def contract_size(self) -> str:
@@ -145,13 +168,92 @@ class FuturesContractQuote(ModelBase):
     contract = relationship('FuturesContract', back_populates='quote_list')
 
 
-class MainContract(ModelBase):
-    __tablename__ = 'main_contract'
+class FuturesMainContract(ModelBase):
+    """
+    期货主力合约
+    """
+    __tablename__ = 'futures_main_contract'
 
     id = Column(Integer, primary_key=True)
     datetime = Column(DateTime, nullable=False)
-    cash = Column(Float, nullable=False)
-    position_long = Column(Integer, nullable=False)
-    position_short = Column(Integer, nullable=False)
-    order_long = Column(Integer, nullable=False)
-    order_short = Column(Integer, nullable=False)
+    futures_id = Column(Integer, ForeignKey='futures.id', nullable=False)
+    contract_id = Column(Integer, ForeignKey='futures_contract.id', nullable=False)
+
+    futures = relationship('Futures', back_populates='main_contract_list')
+
+    def get_contract(self) -> FuturesContract:
+        return db_session.query(FuturesContract).filter_by(id=self.contract_id).one()
+
+
+class BacktestRecord(ModelBase):
+    """
+    回测记录
+    """
+    __tablename__ = 'backtest_record'
+
+    id = Column(Integer, primary_key=True)
+    strategy = Column(String(20), nullable=False)
+    symbol = Column(String(20), nullable=False)
+    backtest_start = Column(DateTime, nullable=False)
+    backtest_end = Column(DateTime, nullable=False)
+    real_start = Column(DateTime, nullable=False)
+    real_end = Column(DateTime)
+
+    order_list = relationship('BacktestOrder', back_populates='backtest')
+    trade_list = relationship('BacktestTrade', back_populates='backtest')
+
+    @property
+    def backtest_id(self) -> str:
+        return f'backtest_record_{self.datetime.strftime("%Y-%m-%d_%H-%M-%S")}'
+
+    def __repr__(self):
+        return f'<Backtest({self.strategy} on: {self.symbol}, at: {self.datetime}, record: {self.backtest_id})>'
+
+
+class BacktestOrder(ModelBase):
+    __tablename__ = 'backtest_order'
+
+    id = Column(Integer, primary_key=True)
+    insert_datetime = Column(DateTime, nullable=False)
+    last_datetime = Column(DateTime)
+    order_id = Column(String, nullable=False)
+    direction = Column(String, nullable=False)
+    offset = Column(String, nullable=False)
+    price = Column(Float, nullable=False)
+    volume_orign = Column(Integer, nullable=False)
+    volume_left = Column(Integer)
+    status = Column(String, nullable=False)
+    opponent = Column(String)
+
+    backtest_id = Column(Integer, ForeignKey('backtest_record.id'), nullable=False)
+
+    backtest = relationship('BacktestRecord', back_populates='order_list')
+    trade_list = relationship('BacktestTrade', back_populates='order')
+
+    def __repr__(self):
+        return f'<BacktestOrder(order_id={self.order_id}, {self.direction} {self.offset}, {self.volume} @{self.price})>'
+
+
+class BacktestTrade(ModelBase):
+    __tablename__ = 'backtest_trade'
+
+    id = Column(Integer, primary_key=True)
+    order_id = Column(String, nullable=False)   # 委托单ID
+    trade_id = Column(String, nullable=False)                               # 成交ID
+    exchange_trade_id = Column(String, nullable=False)                      # 交易所成交号
+    exchange_id = Column(String, nullable=False)                            # 交易所
+    instrument_id = Column(String, nullable=False)                          # 交易所内的合约代码
+    direction = Column(String, nullable=False)   # 下单方向
+    offset = Column(String, nullable=False)         # 开平标志
+    price = Column(Float, nullable=False)
+    volume = Column(Integer, nullable=False)
+    datetime = Column(DateTime, nullable=False)
+
+    backtest_order_id = Column(Integer, ForeignKey('backtest_order.id'), nullable=False)
+    backtest_id = Column(Integer, ForeignKey('backtest_record.id'), nullable=False)
+
+    order = relationship('BacktestOrder', back_populates='trade_list')
+    backtest = relationship('BacktestRecord', back_populates='trade_list')
+
+    def __repr__(self):
+        return f'<BacktestTrade(order_id={self.order_id}, {self.direction} {self.offset}, {self.volume} @{self.price})>'

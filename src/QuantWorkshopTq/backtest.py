@@ -15,15 +15,15 @@ from dotenv import find_dotenv, load_dotenv
 from tqsdk import TqApi, TqBacktest, TqSim
 
 from QuantWorkshopTq.strategy import StrategyBase, StrategyParameter
-# from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
-from QuantWorkshopTq.strategy.test import TestStrategy, strategy_parameter
+from QuantWorkshopTq.strategy.scalping import Scalping, strategy_parameter
+# from QuantWorkshopTq.strategy.test import TestStrategy, strategy_parameter
 
 
 if __name__ == '__main__':
     # 自定义变量
     backtest_capital: float = 100000.0
     backtest_start_date: date = date(2020, 9, 9)
-    backtest_end_date: date = date(2020, 9, 10)
+    backtest_end_date: date = date(2020, 9, 9)
 
     # 加载 .env 变量
     load_dotenv(find_dotenv())
@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     # 回测策略
     backtest_strategy: StrategyBase
-    backtest_strategy = TestStrategy(api=tq_api, settings=parameter)
+    backtest_strategy = Scalping(api=tq_api, settings=parameter)
 
     # 运行回测
     backtest_strategy.run()

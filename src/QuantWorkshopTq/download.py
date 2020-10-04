@@ -53,9 +53,12 @@ if __name__ == '__main__':
     # 天勤API
     tq_api: TqApi = TqApi(auth=TqAuth(TQ_ACCOUNT, TQ_PASSWORD))
 
+    # Application path
+    application_path: str = get_application_path()
+
     # 下载需求
     download_request_list: List[dict] = []
-    csv_path: str = os.path.join(get_application_path(), 'download.csv')
+    csv_path: str = os.path.join(application_path, 'download.csv')
     with open(csv_path, newline='', encoding='utf-8') as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
@@ -75,7 +78,9 @@ if __name__ == '__main__':
     with closing(tq_api):
         for request in download_request_list:
             task_name = request['symbol']
-            file_name = f'{request["symbol"]}_{period(request["period"])}.csv'
+            file_name = os.path.join(application_path,
+                                     'data_downloaded',
+                                     f'{request["symbol"]}_{period(request["period"])}.csv')
             task = DataDownloader(
                 tq_api,
                 symbol_list=request['symbol'],

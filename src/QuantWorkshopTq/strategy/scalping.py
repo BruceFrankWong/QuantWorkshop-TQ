@@ -40,12 +40,12 @@ from tqsdk.ta import MACD
 from pandas import DataFrame
 from sqlalchemy.orm.exc import NoResultFound
 
-from . import (
-    StrategyBase,
-    StrategyParameter,
+from . import StrategyBase, StrategyParameter
+from ..database import (
     db_session,
+    BacktestRecord,
     BacktestOrder,
-    BacktestTrade
+    BacktestTrade,
 )
 
 
@@ -133,23 +133,23 @@ class Scalping(StrategyBase):
                 return True
         return False
 
-    @staticmethod
-    def db_add_order(order: Order, opponent_order_id: Optional[str] = None):
+    def db_add_order(self, order: Order, opponent_order_id: Optional[str] = None):
         if opponent_order_id:
             db_order = db_session.query(BacktestOrder).filter_by(order_id=opponent_order_id).one()
             if db_order.opponent:
                 raise ValueError(f'Order with id <{opponent_order_id}> already has opponent order.')
             else:
                 db_order.opponent = order.order_id
-        new_order: BacktestOrder = BacktestOrder(datetime=datetime.datetime.now(),
-                                                 order_id=order.order_id,
-                                                 direction=order.direction,
-                                                 offset=order.offset,
-                                                 price=order.limit_price,
-                                                 volume=order.volume_orign,
-                                                 status='ALIVE',
-                                                 opponent=opponent_order_id
-                                                 )
+        new_order = BacktestOrder(datetime=datetime.datetime.now(),
+                                  order_id=order.order_id,
+                                  direction=order.direction,
+                                  offset=order.offset,
+                                  price=order.limit_price,
+                                  volume=order.volume_orign,
+                                  status='ALIVE',
+                                  opponent=opponent_order_id,
+                                  backtest_record_id=self.backtest_record_id
+                                  )
         db_session.add(new_order)
         db_session.commit()
 
@@ -203,20 +203,30 @@ class Scalping(StrategyBase):
         3、根据 均线？MACD？判断多空。
         :return:
         """
-        max_position = self._settings['max_position']
+        max_position = self.settings['max_position']
         position_long = self.tq_position.pos_long
         position_short = self.tq_position.pos_short
         total_position = position_long + position_short
 
         lots_at_bid = lots_at_price(self.tq_order, self.price_bid)
         lots_at_ask = lots_at_price(self.tq_order, self.price_ask)
-        volume_per_order = self._settings['volume_per_order']
-        volume_per_price = self._settings['volume_per_price']
+        volume_per_order = self.settings['volume_per_order']
+        volume_per_price = self.settings['volume_per_price']
 
         is_position_available = True if total_position < max_position else False
         is_lots_available = True if lots_at_bid + lots_at_ask + volume_per_order < volume_per_price else False
 
         return is_lots_available and is_position_available
+
+    def is_close_condition(self) -> bool:
+        print('NotImplemented')
+        return False
+
+    def load_status(self):
+        print('NotImplemented')
+
+    def save_status(self):
+        print('NotImplemented')
 
     def handle_orders(self, order: Order):
         """
@@ -273,7 +283,8 @@ class Scalping(StrategyBase):
                         price=order.limit_price,
                         volume_orign=order.volume_orign,
                         volume_left=order.volume_orign,
-                        status='ALIVE'
+                        status='ALIVE',
+                        backtest_id=self.backtest_record_id
                     )
                 )
                 db_session.commit()
@@ -303,7 +314,8 @@ class Scalping(StrategyBase):
 
                         status=new_status,
                         last_datetime=self.remote_datetime,
-                        volume_left=order.volume_left
+                        volume_left=order.volume_left,
+                        backtest_id=self.backtest_record_id
                     )
                 )
                 db_session.commit()
@@ -322,6 +334,7 @@ class Scalping(StrategyBase):
                     except NoResultFound:
                         db_session.add(
                             BacktestTrade(
+                                backtest_id=self.backtest_record_id,
                                 backtest_order_id=db_order.id,
                                 order_id=order.order_id,
                                 trade_id=trade.trade_id,
@@ -342,11 +355,11 @@ class Scalping(StrategyBase):
                             if order.direction == 'BUY':
                                 # 卖平
                                 new_direction = 'SELL'
-                                new_price = order.limit_price + self._settings['close_spread']
+                                new_price = order.limit_price + self.settings['close_spread']
                             else:
                                 # 买平
                                 new_direction = 'BUY'
-                                new_price = order.limit_price - self._settings['close_spread']
+                                new_price = order.limit_price - self.settings['close_spread']
 
                             # 下平仓单
                             self.api.insert_order(
@@ -422,7 +435,7 @@ class Scalping(StrategyBase):
                         order_open = self.api.insert_order(symbol=self.symbol,
                                                            direction='BUY',
                                                            offset='OPEN',
-                                                           volume=self._settings['volume_per_order'],
+                                                           volume=self.settings['volume_per_order'],
                                                            limit_price=self.price_bid
                                                            )
                         self.log_order(order_open)

@@ -36,10 +36,21 @@ def is_table_exist(table: Union[ModelBase, str]) -> bool:
 def is_table_empty(table: Union[ModelBase, str]) -> bool:
     table_instance: ModelBase
     if isinstance(table, str):
-        table_instance = get_table_instance(table)
+        table_instance = ModelBase.metadata.tables.get(table)
     else:
         table_instance = table
     return False if db_session.query(table_instance).first() else True
+    # table_name: str
+    # if isinstance(table, str):
+    #     table_name = table
+    # else:
+    #     table_name = get_table_name(table)
+    # return False if db_session.query(table_name).first() else True
+
+
+def create_table(table: str, drop: bool = False):
+    table_instance: ModelBase = ModelBase.metadata.tables[table]
+    table_instance.create(db_engine, checkfirst=True)
 
 
 def create_all_tables(drop: bool = False):

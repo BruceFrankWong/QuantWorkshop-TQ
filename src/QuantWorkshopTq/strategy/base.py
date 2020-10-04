@@ -3,7 +3,8 @@
 __author__ = 'Bruce Frank Wong'
 
 
-from typing import Any, Optional, Dict, List
+from typing import Any, Union, Optional, Dict, List
+import abc
 import logging
 import os.path
 from datetime import datetime, date, time, timezone, timedelta
@@ -15,6 +16,7 @@ from tqsdk.tafunc import time_to_datetime
 from pandas import DataFrame
 
 from QuantWorkshopTq.define import tz_beijing, tz_settlement
+from QuantWorkshopTq.database import db_session, BacktestRecord
 
 
 class StrategyParameter(object):
@@ -53,12 +55,12 @@ class StrategyParameter(object):
             print(self._parameters[item])
 
 
-class StrategyBase(object):
+class StrategyBase(metaclass=abc.ABCMeta):
     strategy_name: str = 'Unnamed Strategy'
     api: TqApi
     logger: logging.Logger
 
-    symbol: str
+    symbol: Union[str, List[str]]
     settings: dict
     timeout: int = 5
 
@@ -77,16 +79,16 @@ class StrategyBase(object):
     tq_quote: Quote
     tq_order: Entity
 
-    def __init__(self, api: TqApi, symbol: str, settings: Optional[StrategyParameter] = None):
+    def __init__(self, api: TqApi, symbol: Union[str, List[str]], settings: Optional[StrategyParameter] = None):
         self._tz_settlement = tz_settlement
         self.api = api
-        self.logger = self._get_logger()
+        self.logger = self.get_logger()
         self.symbol = symbol
 
-        self._settings = {}
+        self.settings = {}
         if settings:
             for k in settings.parameter_name:
-                self._settings[k] = settings.get_parameter(k)
+                self.settings[k] = settings.get_parameter(k)
 
         # 天勤数据
         self.tq_account = self.api.get_account()
@@ -95,7 +97,19 @@ class StrategyBase(object):
         self.tq_quote = self.api.get_quote(self.symbol)
         self.tq_order = self.api.get_order()
 
-    def _get_logger(self) -> logging.Logger:
+        # 数据库
+        if '_backtest' in self.api.__dict__:
+            backtest_record: BacktestRecord = BacktestRecord(strategy=self.strategy_name,
+                                                             symbol=self.symbol,
+                                                             backtest_start=self.api._backtest._start_dt,
+                                                             backtest_end=self.api._backtest._end_dt,
+                                                             real_start=datetime.now(),
+                                                             )
+            db_session.add(backtest_record)
+            db_session.commit()
+            self.backtest_record_id = backtest_record.id
+
+    def get_logger(self) -> logging.Logger:
         logger = logging.getLogger(f'Strategy-{self.strategy_name}')
 
         logger.setLevel(logging.DEBUG)
@@ -168,17 +182,22 @@ class StrategyBase(object):
     def log_no_data(self) -> None:
         self.logger.info(f'{self.remote_datetime}, 未在 timeout 时间内收到数据。')
 
+    @abc.abstractmethod
     def is_open_condition(self) -> bool:
-        pass
+        raise NotImplementedError()
 
+    @abc.abstractmethod
     def is_close_condition(self) -> bool:
-        pass
+        raise NotImplementedError()
 
+    @abc.abstractmethod
     def load_status(self):
-        pass
+        raise NotImplementedError()
 
+    @abc.abstractmethod
     def save_status(self):
-        pass
+        raise NotImplementedError()
 
+    @abc.abstractmethod
     def run(self):
-        pass
+        raise NotImplementedError()
