@@ -9,7 +9,8 @@ from .types import (
     QWOffset,
     QWOrderStatus,
     QWExchange,
-    QWTradingTime
+    QWTradingTime,
+    QWPeriodType
 )
 from .types import (
     evening, morning, afternoon

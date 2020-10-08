@@ -15,7 +15,8 @@ from datetime import datetime, date, time, timedelta
 
 import pandas as pd
 
-from QuantWorkshopTq.utility import get_application_path
+from QuantWorkshopTq.utility import get_application_path, load_csv, plot
+from QuantWorkshopTq.analysis import PriceType, trend_on_single_price, trend_on_hl
 
 
 TQ_DATA_BEGIN = date(2016, 1, 1)
@@ -127,18 +128,32 @@ def merge_as_section():
     pass
 
 
-def merge_as_15_minutes():
-    pass
+def trend_line_on_close(csv_file: str):
+    df: pd.Pandas = load_csv(csv_file)
+    key_point_list = trend_on_single_price(df, PriceType.Low, 0.002, True)
+    plot(df,
+         title='SHFE.AG (Main Contract) Daily\nwith trend line on Close',
+         alines={'alines': [key_point_list,
+                            [(df.index[i], df.iloc[i]['close']) for i in range(len(df))]
+                            ],
+                 'colors': ['b', 'g'],
+                 'linewidths': 0.5
+                 }
+         )
 
 
-def handle_csv_header():
-    pass
+def trend_line_on_hl(csv_file: str):
+    df: pd.Pandas = load_csv(csv_file)
+    key_point_list, hl_list = trend_on_hl(df, echo=True)
+    plot(df,
+         title='SHFE.AG (Main Contract) Daily\nwith trend line on High and Low',
+         alines=dict(alines=[key_point_list, hl_list],
+                     colors=['b', 'g'],
+                     linewidths=0.5
+                     )
+         )
 
 
 if __name__ == '__main__':
-    # do_analysis('KQ.m@DCE.c_day.csv')
-    # minute_to_section('DCE.c')
-    # for holiday in generate_holiday():
-    #     print(holiday)
-    for x in generate_trading_date(date(2020, 9, 10)):
-        print(x, x.isoweekday())
+    csv_file: str = 'SHFE.ag2012_minute.csv'
+    trend_line_on_hl(csv_file)

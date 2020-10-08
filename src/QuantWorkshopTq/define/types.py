@@ -121,3 +121,11 @@ class QWTradingTime(object):
     @property
     def close(self) -> time:
         return self._close
+
+
+class QWPeriodType(Enum):
+    Tick = 'tick'
+    Second = 'second'
+    Minute = 'minute'
+    Hour = 'hour'
+    Day = 'day'
